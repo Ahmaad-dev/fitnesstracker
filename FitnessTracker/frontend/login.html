@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FitTracker · Anmelden</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --accent: #7CFF3D;
+      --ink:    #0b1206;
+      --bg:     #0c0d10;
+      --s1:     #101216;
+      --s2:     #16181d;
+      --s3:     #1c1f26;
+      --text:   #f0f1f5;
+      --dim:    rgba(240,241,245,0.5);
+      --faint:  rgba(240,241,245,0.25);
+      --border: rgba(240,241,245,0.08);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    body {
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(120% 90% at 50% 0%, rgba(124,255,61,0.06) 0%, transparent 60%),
+        var(--bg);
+    }
+
+    .card {
+      width: 100%;
+      max-width: 360px;
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 40px 32px 36px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    .logo-dot {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--accent);
+      display: grid;
+      place-items: center;
+    }
+    .logo-dot svg { display: block; }
+    .logo-name {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: var(--dim);
+      margin-bottom: 32px;
+      line-height: 1.5;
+    }
+
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin-bottom: 8px;
+    }
+    .input-wrap {
+      position: relative;
+    }
+    input[type="password"] {
+      width: 100%;
+      padding: 13px 16px;
+      background: var(--s3);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      font-size: 15px;
+      font-family: inherit;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      letter-spacing: 0.1em;
+    }
+    input[type="password"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124,255,61,0.12);
+    }
+    input[type="password"]::placeholder {
+      color: var(--faint);
+      letter-spacing: normal;
+    }
+
+    button {
+      margin-top: 20px;
+      width: 100%;
+      padding: 14px;
+      background: var(--accent);
+      border: none;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      color: var(--ink);
+      cursor: pointer;
+      letter-spacing: -0.01em;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    button:hover  { opacity: 0.88; }
+    button:active { transform: scale(0.98); }
+    button:disabled { opacity: 0.45; cursor: default; }
+
+    .error {
+      margin-top: 14px;
+      min-height: 18px;
+      font-size: 13px;
+      color: #ff6b57;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-dot">
+        <!-- simple dumbbell icon in accent ink -->
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+             stroke="#0b1206" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2"  y="9"  width="4" height="6" rx="1.5"/>
+          <rect x="18" y="9"  width="4" height="6" rx="1.5"/>
+          <rect x="6"  y="11" width="4" height="2" rx="1"/>
+          <rect x="14" y="11" width="4" height="2" rx="1"/>
+          <line x1="10" y1="12" x2="14" y2="12"/>
+        </svg>
+      </div>
+      <span class="logo-name">FitTracker</span>
+    </div>
+
+    <h1>Willkommen zurück</h1>
+    <p class="subtitle">Bitte gib dein Passwort ein, um fortzufahren.</p>
+
+    <label for="pw">Passwort</label>
+    <div class="input-wrap">
+      <input id="pw" type="password"
+             autocomplete="current-password"
+             placeholder="••••••••"
+             autofocus />
+    </div>
+
+    <button id="btn" onclick="doLogin()">Einloggen</button>
+    <div class="error" id="err"></div>
+  </div>
+
+  <script>
+    document.getElementById('pw').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') doLogin();
+    });
+
+    async function doLogin() {
+      var pw    = document.getElementById('pw').value;
+      var errEl = document.getElementById('err');
+      var btn   = document.getElementById('btn');
+      errEl.textContent = '';
+      if (!pw) { errEl.textContent = 'Bitte Passwort eingeben.'; return; }
+      btn.disabled = true;
+      btn.textContent = 'Prüfe …';
+      try {
+        var r = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw }),
+        });
+        var d = await r.json();
+        if (d.ok) {
+          window.location.replace('/');
+        } else {
+          errEl.textContent = 'Falsches Passwort.';
+          btn.disabled = false;
+          btn.textContent = 'Einloggen';
+        }
+      } catch (e) {
+        errEl.textContent = 'Verbindungsfehler – Backend erreichbar?';
+        btn.disabled = false;
+        btn.textContent = 'Einloggen';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+flask>=3.0.0
+flask-sqlalchemy>=3.1.0
+werkzeug>=3.0.0
+bcrypt>=4.1.0
+openai>=1.30.0
+garminconnect>=0.2.19
+garth>=0.4.44
+fitparse>=1.2.0
+gunicorn>=22.0.0

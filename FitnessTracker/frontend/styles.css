@@ -1,0 +1,125 @@
+/* FitTracker — Design Tokens & Base */
+:root {
+  --bg:        #0c0d10;
+  --bg-2:      #101216;
+  --surface:   #16181d;
+  --surface-2: #1c1f26;
+  --surface-3: #23272f;
+  --border:    rgba(255,255,255,0.07);
+  --border-2:  rgba(255,255,255,0.12);
+
+  --text:      #f3f4f6;
+  --text-dim:  #9aa0aa;
+  --text-faint:#646a74;
+
+  --accent:    #7CFF3D;     /* overridden at runtime by tweak */
+  --accent-rgb: 124,255,61; /* overridden at runtime by tweak */
+  --accent-dim: rgba(var(--accent-rgb), 0.16);
+  --accent-border: rgba(var(--accent-rgb), 0.35);
+  --accent-surface: #1b2417;  /* lime-tinted surface, overridden at runtime */
+  --accent-ink: #0b1206;
+
+  --warn:  #FFB13D;
+  --warn-rgb: 255,177,61;
+  --hot:   #FF6B57;
+  --cool:  #4DA6FF;
+
+  /* muscle group hues */
+  --m-brust:   #FF6B57;
+  --m-schulter:#FFB13D;
+  --m-trizeps: #FFD23D;
+  --m-ruecken: #4DA6FF;
+  --m-bizeps:  #5ED1FF;
+  --m-trapez:  #FF8FA3;
+  --m-beine:   #A98BFF;
+  --m-core:    #1FD6B5;
+
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+
+  --font: 'Inter', -apple-system, system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --shadow-card: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px -12px rgba(0,0,0,0.6);
+}
+
+* { box-sizing: border-box; }
+
+.ft-app {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(120% 80% at 50% -10%, #15171c 0%, var(--bg) 55%);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* scroll region */
+.ft-scroll {
+  flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 112px;
+}
+.ft-scroll::-webkit-scrollbar { width: 0; }
+
+.ft-pad { padding: 0 20px; }
+
+/* status bar clearance + header */
+.ft-top { padding-top: 60px; }
+
+.tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+.mono { font-family: var(--mono); }
+
+h1,h2,h3,h4,p { margin: 0; }
+
+.eyebrow {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+
+/* card */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* button */
+.btn {
+  appearance: none; border: none; cursor: pointer;
+  font-family: var(--font); font-weight: 650; font-size: 16px;
+  border-radius: 999px; min-height: 52px; padding: 0 22px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  transition: transform .12s ease, filter .15s ease, background .15s ease;
+  user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.btn:active { transform: scale(0.975); }
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-primary:hover { filter: brightness(1.06); }
+.btn-ghost { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--surface-3); }
+.btn-block { width: 100%; }
+
+/* chip / tag */
+.tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 600; letter-spacing: 0.01em;
+  padding: 5px 10px 5px 9px; border-radius: 999px;
+  background: var(--surface-2); color: var(--text-dim);
+  border: 1px solid var(--border); white-space: nowrap;
+}
+.tag .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+.fade-in { animation: fadeUp .42s cubic-bezier(.2,.7,.3,1) both; }
+@keyframes fadeUp { from { transform: translateY(9px); } to { transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-in { animation: none; }
+}

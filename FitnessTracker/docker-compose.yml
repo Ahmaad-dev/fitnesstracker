@@ -1,0 +1,10 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      # Persistent data: SQLite database + Garmin token cache
+      - ./data:/data
+    env_file: app.env
+    restart: unless-stopped
