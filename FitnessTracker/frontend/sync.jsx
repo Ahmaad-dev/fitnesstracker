@@ -61,11 +61,12 @@ function PendingSessionCard({ s, onPick, onDiscard }) {
   );
 }
 
-function SyncScreen({ pending = [], synced, setSynced, onPick, onDiscard, go }) {
+function SyncScreen({ pending = [], synced, setSynced, onPick, onDiscard, onSync, go }) {
   const { profile } = useProfile();
   // phases: idle, connecting, syncing, found — if already synced, jump straight to the list
   const [phase, setPhase] = React.useState(synced ? 'found' : 'idle');
   const [pct, setPct] = React.useState(0);
+  const [syncError, setSyncError] = React.useState(null);
   const timers = React.useRef([]);
   const ivRef = React.useRef(null);
 
@@ -78,12 +79,23 @@ function SyncScreen({ pending = [], synced, setSynced, onPick, onDiscard, go }) 
   React.useEffect(() => clear, []);
 
   const start = () => {
-    clear(); setPct(0); setPhase('connecting');
+    clear(); setPct(0); setSyncError(null); setPhase('connecting');
+    // Echter API-Aufruf — kein Fake mehr
+    let apiDone = false;
+    if (onSync) {
+      onSync()
+        .catch((e) => setSyncError(e?.message || 'Sync fehlgeschlagen – Token abgelaufen?'))
+        .finally(() => { apiDone = true; });
+    } else {
+      apiDone = true;
+    }
     timers.current.push(setTimeout(() => setPhase('syncing'), 1100));
     timers.current.push(setTimeout(() => {
       const t0 = Date.now(); const DUR = 1700;
       const tick = () => {
-        const p = Math.min(100, Math.round(((Date.now() - t0) / DUR) * 100));
+        // Fortschrittsbalken bei 95% einfrieren bis API antwortet
+        const cap = apiDone ? 100 : 95;
+        const p = Math.min(cap, Math.round(((Date.now() - t0) / DUR) * 100));
         setPct(p);
         if (p >= 100) {
           clearInterval(ivRef.current); ivRef.current = null;
@@ -126,6 +138,11 @@ function SyncScreen({ pending = [], synced, setSynced, onPick, onDiscard, go }) 
           {phase === 'syncing' && (
             <div style={{ marginTop: 18, height: 6, borderRadius: 999, background: 'var(--surface-3)', overflow: 'hidden' }}>
               <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)', borderRadius: 999, transition: 'width .13s linear' }} />
+            </div>
+          )}
+          {syncError && (
+            <div style={{ fontSize: 12, color: '#ff6b6b', marginTop: 10, padding: '8px 12px', background: 'rgba(255,107,107,0.1)', borderRadius: 8, border: '1px solid rgba(255,107,107,0.25)' }}>
+              ⚠ {syncError}
             </div>
           )}
 

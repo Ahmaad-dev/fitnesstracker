@@ -126,7 +126,20 @@
      * Trigger a Garmin sync.
      * Returns { ok, pending: [...PENDING_SESSIONS entries] }
      */
-    sync: () => post('/api/garmin/sync', {}),
+    sync: () =>
+      fetch('/api/garmin/sync', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      }).then(async (r) => {
+        const json = await r.json().catch(() => ({}));
+        if (!r.ok || json.ok === false) {
+          // Echten Fehlertext aus Backend-Response verwenden
+          throw new Error(json.error || `Sync fehlgeschlagen (HTTP ${r.status})`);
+        }
+        return json;
+      }),
 
     /**
      * Send the pre-built coach prompt to the backend → OpenAI.

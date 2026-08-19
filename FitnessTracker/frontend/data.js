@@ -38,6 +38,7 @@
     { name: 'Trizeps einarmig steh.', day: 'Arm', muscle: 'Trizeps', pattern: 'pushdown', img: 'Cable_One_Arm_Tricep_Extension' },
     { name: 'Hammercurls (Kabel)',    day: 'Arm', muscle: 'Bizeps',  pattern: 'curl',     img: 'Cable_Hammer_Curls_-_Rope_Attachment' },
     { name: 'Trizeps Pushdown (Seil)',day: 'Arm', muscle: 'Trizeps', pattern: 'pushdown', img: 'Triceps_Pushdown_-_Rope_Attachment' },
+    { name: 'Bizeps Curls auf Schrägbank (beidarmig)', day: 'Arm', muscle: 'Bizeps',  pattern: 'curl',     img: 'Incline_Dumbbell_Curl' },
     // Legday
     { name: 'Squats (Langhantel)',    day: 'Beine', muscle: 'Beine', pattern: 'squat',    img: 'Barbell_Squat', barTip: 'Stange mitzählen (20 kg)' },
     { name: 'Sled Hack Squat',        day: 'Beine', muscle: 'Beine', pattern: 'squat',    img: 'Leg_Press' },
@@ -100,6 +101,7 @@
     'Trizeps einarmig steh.': 'triceps/dumbbell-standing-one-arm-extension',
     'Hammercurls (Kabel)':    'biceps/cable-hammer-curl-with-rope',
     'Trizeps Pushdown (Seil)':'triceps/cable-pushdown-with-rope-attachment',
+    'Bizeps Curls auf Schrägbank (beidarmig)': 'biceps/dumbbell-incline-biceps-curl',
     'Squats (Langhantel)':    'glutes/barbell-full-squat',
     'Sled Hack Squat':        'glutes/sled-hack-squat',
     '45° Beinpresse':         'glutes/sled-45-leg-press',

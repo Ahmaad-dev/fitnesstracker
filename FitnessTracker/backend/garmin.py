@@ -76,15 +76,29 @@ def sync_garmin(since_days: int = 30) -> list[dict]:
     # Krafttraining-Typen (Garmin verwendet je nach Gerät/Einstellung verschiedene typeKeys)
     STRENGTH_TYPES = {
         'strength_training', 'strength', 'fitness_equipment',
-        'gym_and_fitness_equipment',
+        'gym_and_fitness_equipment', 'indoor_cardio',
     }
-    # Fetch only strength_training at API level to avoid hitting the 20-activity page limit
-    # when the user has many other activity types (HIIT, Bouldern, etc.)
-    activities = api.get_activities_by_date(
-        start_dt.isoformat(), end_dt.isoformat(),
-        activitytype='strength_training',
-    ) or []
-    log.info('Garmin: %d strength_training-Aktivitäten von API erhalten', len(activities))
+    # Alle Aktivitäten per Pagination laden (kein activitytype-Filter, da Garmin
+    # je nach Gerät/Sprache verschiedene typeKeys zurückgibt und der Filter
+    # gültige Krafttrainings-Einheiten überspringen kann)
+    activities: list[dict] = []
+    for offset in range(0, 2000, 100):
+        try:
+            page = api.get_activities_by_date(
+                start_dt.isoformat(), end_dt.isoformat(),
+                limit=100, start=offset,
+            ) or []
+        except TypeError:
+            # ältere garminconnect-Versionen kennen limit/start nicht
+            page = api.get_activities_by_date(start_dt.isoformat(), end_dt.isoformat()) or []
+            activities.extend(page)
+            break
+        if not page:
+            break
+        activities.extend(page)
+        if len(page) < 100:
+            break
+    log.info('Garmin: %d Aktivitäten gesamt von API erhalten', len(activities))
 
     # Collect typeKeys for debugging
     all_types = {(a.get('activityType', {}).get('typeKey') or 'unknown').lower() for a in activities}

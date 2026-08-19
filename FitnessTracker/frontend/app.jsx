@@ -227,21 +227,22 @@ function App() {
       window.FTApi.discardSession(sessionId).catch((e) => console.warn('[FT] discard failed', e));
     }
   }, []);
-  const handleSync = React.useCallback(async () => {
-    if (window.FTApi) {
-      try {
-        const result = await window.FTApi.sync();
-        if (result && result.pending && result.pending.length) {
-          setPending((prev) => {
-            const existingIds = new Set(prev.map((p) => p.id));
-            const fresh = result.pending.filter((p) => !existingIds.has(p.id));
-            return [...fresh, ...prev];
-          });
-        }
-      } catch (_) { /* Fehler ignorieren – Sync-Screen trotzdem öffnen */ }
+  // Echter Garmin-Sync — Fehler propagieren damit SyncScreen sie anzeigen kann
+  const doSync = React.useCallback(async () => {
+    if (!window.FTApi) return;
+    const result = await window.FTApi.sync();
+    if (result && result.pending && result.pending.length) {
+      setPending((prev) => {
+        const existingIds = new Set(prev.map((p) => p.id));
+        const fresh = result.pending.filter((p) => !existingIds.has(p.id));
+        return [...fresh, ...prev];
+      });
     }
-    go('sync');
   }, []);
+  const handleSync = React.useCallback(async () => {
+    try { await doSync(); } catch (_) {}
+    go('sync');
+  }, [doSync]);
 
   let screen;
   switch (route) {
@@ -249,7 +250,7 @@ function App() {
     case 'historyDay': screen = <DayDetailScreen day={day} ai={ai} onBack={() => go('history')} goKI={() => go('recommend')} />; break;
     case 'detail':     screen = <DetailScreen session={session} onBack={() => go('dashboard')} />; break;
     case 'recommend':  screen = <RecommendScreen variant={t.recommend} ai={ai} onTrigger={triggerAI} go={go} />; break;
-    case 'sync':       screen = <SyncScreen pending={pending} synced={synced} setSynced={setSynced} onPick={openAssign} onDiscard={handleDiscard} go={go} />; break;
+    case 'sync':       screen = <SyncScreen pending={pending} synced={synced} setSynced={setSynced} onPick={openAssign} onDiscard={handleDiscard} onSync={doSync} go={go} />; break;
     case 'assign':     screen = <AssignScreen variant={t.assign} session={activeSync} onSaved={finalizeSession} go={go} />; break;
     case 'profile':    screen = <ProfileScreen />; break;
     default:           screen = <DashboardScreen variant={t.dashboard} recVariant={t.recommend} ai={ai} go={go} onOpen={openSession} onStart={handleSync} onOpenDay={openDay} pendingCount={pending.length} />;
