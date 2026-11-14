@@ -84,7 +84,7 @@ async function requestAI(profile) {
   const athlete = { alter: p.age, gewicht_kg: p.weight, groesse_cm: p.height, geschlecht: p.sex, ziel: p.goal, erfahrung: p.level };
   const dueDay = window.FT.nextDay();
   const prompt =
-`Du bist ein erfahrener, sachlicher Kraft-Coach. Analysiere die Trainingshistorie eines Nutzers (5er-Split: Brust, Rücken, Schulter, Arm, Beine). Pro Übung sind die letzten Einheiten als JSON gegeben (kg = Arbeitssatz-Gewicht, topReps = Wdh im Top-Satz; bodyweight=true heißt Körpergewicht, dann zählen Wdh statt kg).
+`Du bist ein erfahrener, sachlicher Kraft-Coach. Analysiere die Trainingshistorie eines Nutzers (5er-Split: Brust, Rücken, Schulter, Arm, Beine). Übungen mit tag "Allgemein" (Klimmzüge, Liegestütze, Dips) gehören zu keinem Split-Tag und können an jedem Tag ergänzt werden. Pro Übung sind die letzten Einheiten als JSON gegeben (kg = Arbeitssatz-Gewicht, topReps = Wdh im Top-Satz; bodyweight=true heißt Körpergewicht, dann zählen Wdh statt kg). Das Feld "gewichtsangabe" sagt, wie das Gewicht erfasst wird (z. B. pro Hantel oder beide Seiten addiert) — deine Gewichtsempfehlung "s" MUSS in genau dieser Konvention angegeben sein.
 
 Nutzerprofil (relevant für realistische Steigerungen — Alter, Gewicht, Größe, Geschlecht, Ziel und Erfahrung berücksichtigen):
 ${JSON.stringify(athlete)}

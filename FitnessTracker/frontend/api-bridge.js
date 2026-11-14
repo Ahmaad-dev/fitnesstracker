@@ -68,7 +68,8 @@
       const dayCounts = {};
       sess.exercises.forEach((ex) => {
         const def = (window.FT.EXERCISES || []).find((e) => e.name === ex.name);
-        if (def && def.day) dayCounts[def.day] = (dayCounts[def.day] || 0) + 1;
+        // „Allgemein" (Klimmzüge, Dips, …) wird an jedem Tag gemacht → bestimmt nicht den Split-Tag
+        if (def && def.day && def.day !== 'Allgemein') dayCounts[def.day] = (dayCounts[def.day] || 0) + 1;
       });
       const entries = Object.entries(dayCounts);
       if (entries.length)

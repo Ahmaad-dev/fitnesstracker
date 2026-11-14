@@ -198,6 +198,7 @@ function AssignScreen({ variant = 'dnd', session, onSaved, go }) {
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-faint)' }}>
                       <span className="dot" style={{ width: 6, height: 6, borderRadius: '50%', background: window.FT.muscleColor(g.ex.muscle) }} />{g.ex.muscle} · ändern
                     </span>
+                    {window.FT.barTipFor(g.ex.name) && <BarTip tip={window.FT.barTipFor(g.ex.name)} style={{ marginTop: 3, alignSelf: 'flex-start' }} />}
                   </span></>
               : <><span style={{ width: 46, height: 46, borderRadius: 11, background: 'var(--surface-3)', display: 'grid', placeItems: 'center', flexShrink: 0 }}><Icon name="dumbbell" size={20} color="var(--accent)" /></span>
                   <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

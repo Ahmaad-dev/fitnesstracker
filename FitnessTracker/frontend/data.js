@@ -13,39 +13,54 @@
     Core:     { v: '--m-core' },
   };
 
+  // Gewichts-Konvention (Hinweis "barTip" — wird im Verlauf, beim Zuordnen und an die KI gezeigt):
+  //   • 2 Kurzhanteln gleichzeitig  → Gewicht EINER Hantel eintragen (nicht ×2)
+  //   • Scheiben links + rechts      → beide Seiten ADDIEREN (Langhantel/SZ inkl. Stange, Maschinen ohne Schlitten/Hebel)
+  //   • Steckgewicht / Kabel         → Zahl am Gewichtsblock
+  //   • Körpergewicht                → 0 kg, nur Zusatzgewicht eintragen
+  const TIP_KH  = 'Gewicht einer Hantel eintragen (nicht ×2)';
+  const TIP_SUM = 'Scheiben beider Seiten addieren';
+  const TIP_BW  = 'Körpergewicht = 0 kg · nur Zusatzgewicht eintragen';
+
   // the user's real exercise catalog, grouped by training day
   const EXERCISES = [
+    // Allgemein (Körpergewicht, an jedem Tag möglich — nicht Teil des 5er-Splits)
+    { name: 'Klimmzüge',              day: 'Allgemein', muscle: 'Rücken',  pattern: 'pulldown', img: 'Pullups', barTip: TIP_BW },
+    { name: 'Liegestütze',            day: 'Allgemein', muscle: 'Brust',   pattern: 'dips',     img: 'Pushups', barTip: TIP_BW },
+    { name: 'Dips',                   day: 'Allgemein', muscle: 'Trizeps', pattern: 'dips',     img: 'Dips_-_Chest_Version', barTip: TIP_BW },
     // Brusttag
-    { name: 'Schrägbankdrücken (KH)', day: 'Brust', muscle: 'Brust', pattern: 'bench', img: 'Incline_Dumbbell_Press' },
-    { name: 'Flachbankdrücken (KH)',  day: 'Brust', muscle: 'Brust', pattern: 'bench', img: 'Dumbbell_Bench_Press' },
+    { name: 'Schrägbankdrücken (KH)', day: 'Brust', muscle: 'Brust', pattern: 'bench', img: 'Incline_Dumbbell_Press', barTip: TIP_KH },
+    { name: 'Flachbankdrücken (KH)',  day: 'Brust', muscle: 'Brust', pattern: 'bench', img: 'Dumbbell_Bench_Press', barTip: TIP_KH },
     { name: 'Butterfly Maschine',     day: 'Brust', muscle: 'Brust', pattern: 'bench', img: 'Butterfly' },
-    { name: 'Liegestütze',            day: 'Brust', muscle: 'Brust', pattern: 'dips',  img: 'Pushups' },
     // Rückentag
     { name: 'Latzug (mittelbreit)',   day: 'Rücken', muscle: 'Rücken', pattern: 'pulldown', img: 'Wide-Grip_Lat_Pulldown' },
     { name: 'Latzug (V-Bar)',         day: 'Rücken', muscle: 'Rücken', pattern: 'pulldown', img: 'V-Bar_Pulldown' },
-    { name: 'Smith Bent Over Row',    day: 'Rücken', muscle: 'Rücken', pattern: 'row',      img: 'Bent_Over_Two-Arm_Long_Bar_Row', barTip: 'Stange nicht mitzählen' },
-    { name: 'Lever Low Row',          day: 'Rücken', muscle: 'Rücken', pattern: 'row',      img: 'Seated_Cable_Rows' },
+    { name: 'Smith Bent Over Row',    day: 'Rücken', muscle: 'Rücken', pattern: 'row',      img: 'Bent_Over_Two-Arm_Long_Bar_Row', barTip: 'Scheiben beider Seiten addieren · Stange nicht mitzählen' },
+    { name: 'Lever Low Row',          day: 'Rücken', muscle: 'Rücken', pattern: 'row',      img: 'Seated_Cable_Rows', barTip: TIP_SUM },
+    { name: 'High Row Maschine',      day: 'Rücken', muscle: 'Rücken', pattern: 'row',      img: 'Leverage_High_Row', barTip: TIP_SUM },
     { name: 'Rudern am Kabel',        day: 'Rücken', muscle: 'Rücken', pattern: 'row',      img: 'Seated_Cable_Rows' },
-    { name: 'Shrugs',                 day: 'Rücken', muscle: 'Trapez', pattern: 'raise',    img: 'Dumbbell_Shrug' },
+    { name: 'Shrugs',                 day: 'Rücken', muscle: 'Trapez', pattern: 'raise',    img: 'Dumbbell_Shrug', barTip: TIP_KH },
     // Schultertag
     { name: 'Schulterdrücken Maschine (seitliche Schulter)', day: 'Schulter', muscle: 'Schulter', pattern: 'overhead', img: 'Smith_Machine_Overhead_Shoulder_Press' },
     { name: 'Seitheben Maschine',     day: 'Schulter', muscle: 'Schulter', pattern: 'raise',    img: 'Side_Lateral_Raise' },
     { name: 'Reverse Butterfly',      day: 'Schulter', muscle: 'Schulter', pattern: 'raise',    img: 'Reverse_Machine_Flyes' },
+    { name: 'Frontheben einarmig (KH)', day: 'Schulter', muscle: 'Schulter', pattern: 'raise',  img: 'Front_Dumbbell_Raise', barTip: 'Gewicht der einen Hantel eintragen' },
     // Armtag
-    { name: 'Bizeps Curls (SZ)',      day: 'Arm', muscle: 'Bizeps',  pattern: 'curl',     img: 'EZ-Bar_Curl', barTip: 'SZ-Stange mitzählen (~10 kg)' },
+    { name: 'Bizeps Curls (SZ)',      day: 'Arm', muscle: 'Bizeps',  pattern: 'curl',     img: 'EZ-Bar_Curl', barTip: 'Scheiben beider Seiten + SZ-Stange (~10 kg) addieren' },
     { name: 'Trizepsdrücken (Kabel)', day: 'Arm', muscle: 'Trizeps', pattern: 'pushdown', img: 'Triceps_Pushdown' },
     { name: 'Scottcurls (einarmig)',  day: 'Arm', muscle: 'Bizeps',  pattern: 'curl',     img: 'One_Arm_Dumbbell_Preacher_Curl' },
     { name: 'Trizeps einarmig steh.', day: 'Arm', muscle: 'Trizeps', pattern: 'pushdown', img: 'Cable_One_Arm_Tricep_Extension' },
     { name: 'Hammercurls (Kabel)',    day: 'Arm', muscle: 'Bizeps',  pattern: 'curl',     img: 'Cable_Hammer_Curls_-_Rope_Attachment' },
     { name: 'Trizeps Pushdown (Seil)',day: 'Arm', muscle: 'Trizeps', pattern: 'pushdown', img: 'Triceps_Pushdown_-_Rope_Attachment' },
-    { name: 'Bizeps Curls auf Schrägbank (beidarmig)', day: 'Arm', muscle: 'Bizeps',  pattern: 'curl',     img: 'Incline_Dumbbell_Curl' },
+    { name: 'Bizeps Curls auf Schrägbank (beidarmig)', day: 'Arm', muscle: 'Bizeps',  pattern: 'curl',     img: 'Incline_Dumbbell_Curl', barTip: TIP_KH },
     // Legday
-    { name: 'Squats (Langhantel)',    day: 'Beine', muscle: 'Beine', pattern: 'squat',    img: 'Barbell_Squat', barTip: 'Stange mitzählen (20 kg)' },
-    { name: 'Sled Hack Squat',        day: 'Beine', muscle: 'Beine', pattern: 'squat',    img: 'Leg_Press' },
-    { name: '45° Beinpresse',         day: 'Beine', muscle: 'Beine', pattern: 'legpress', img: 'Leg_Press' },
+    { name: 'Squats (Langhantel)',    day: 'Beine', muscle: 'Beine', pattern: 'squat',    img: 'Barbell_Squat', barTip: 'Scheiben beider Seiten + Stange (20 kg) addieren' },
+    { name: 'Sled Hack Squat',        day: 'Beine', muscle: 'Beine', pattern: 'squat',    img: 'Leg_Press', barTip: 'Scheiben beider Seiten addieren (Schlitten nicht)' },
+    { name: '45° Beinpresse',         day: 'Beine', muscle: 'Beine', pattern: 'legpress', img: 'Leg_Press', barTip: 'Scheiben beider Seiten addieren (Schlitten nicht)' },
     { name: 'Leg Extension (1-bein.)',day: 'Beine', muscle: 'Beine', pattern: 'legpress', img: 'Leg_Extensions' },
     { name: 'Leg Curl',               day: 'Beine', muscle: 'Beine', pattern: 'hinge',    img: 'Lying_Leg_Curls' },
     { name: 'Adduktorenmaschine sitzend', day: 'Beine', muscle: 'Beine', pattern: 'legpress', img: 'Thigh_Adductor' },
+    { name: 'Abduktorenmaschine sitzend (nach außen)', day: 'Beine', muscle: 'Beine', pattern: 'legpress', img: 'Thigh_Abductor' },
     { name: 'Wadenheben Maschine (stehend)', day: 'Beine', muscle: 'Beine', pattern: 'raise', img: 'Standing_Calf_Raises' },
   ];
 
@@ -85,16 +100,20 @@
     'Schrägbankdrücken (KH)': 'pectorals/dumbbell-incline-bench-press',
     'Flachbankdrücken (KH)':  'pectorals/dumbbell-bench-press',
     'Butterfly Maschine':     'pectorals/lever-seated-fly',
+    'Klimmzüge':              'lats/pull-up',
     'Liegestütze':            'pectorals/push-up',
+    'Dips':                   'pectorals/chest-dip',
     'Latzug (mittelbreit)':   'lats/cable-pulldown',
     'Latzug (V-Bar)':         'lats/cable-lateral-pulldown-with-v-bar',
     'Smith Bent Over Row':    'upper-back/smith-bent-over-row',
     'Lever Low Row':          'upper-back/lever-seated-row',
+    'High Row Maschine':      'upper-back/lever-high-row',
     'Rudern am Kabel':        'upper-back/cable-seated-row',
     'Shrugs':                 'traps/dumbbell-shrug',
     'Schulterdrücken Maschine (seitliche Schulter)': 'delts/lever-shoulder-press-v-2',
     'Seitheben Maschine':     'delts/lever-lateral-raise',
     'Reverse Butterfly':      'delts/lever-seated-reverse-fly',
+    'Frontheben einarmig (KH)': 'delts/dumbbell-front-raise',
     'Bizeps Curls (SZ)':      'biceps/ez-barbell-curl',
     'Trizepsdrücken (Kabel)': 'triceps/cable-pushdown',
     'Scottcurls (einarmig)':  'biceps/dumbbell-one-arm-zottman-preacher-curl',
@@ -108,6 +127,7 @@
     'Leg Extension (1-bein.)':'quads/lever-leg-extension',
     'Leg Curl':               'hamstrings/lever-lying-leg-curl',
     'Adduktorenmaschine sitzend':    'adductors/lever-seated-hip-adduction',
+    'Abduktorenmaschine sitzend (nach außen)': 'abductors/lever-seated-hip-abduction',
     'Wadenheben Maschine (stehend)': 'calves/lever-standing-calf-raise',
   };
 
@@ -154,6 +174,7 @@
 
   // ── per-exercise training log (oldest→newest) for the Verlauf progression charts ──
   const DAY_DATES = {
+    Allgemein: ['5. Mai', '12. Mai', '19. Mai', '26. Mai', '2. Juni'],
     Brust:    ['8. Mai', '15. Mai', '22. Mai', '29. Mai', '3. Juni'],
     Rücken:   ['1. Mai', '8. Mai', '15. Mai', '22. Mai', '29. Mai'],
     Schulter: ['2. Mai', '9. Mai', '16. Mai', '23. Mai', '30. Mai'],
@@ -165,7 +186,9 @@
     'Schrägbankdrücken (KH)': [[22, 24, 26, 26, 28], [10, 9, 8], true],
     'Flachbankdrücken (KH)':  [[28, 28, 30, 30, 32], [10, 9, 8], true],
     'Butterfly Maschine':     [[50, 52.5, 55, 55, 60], [12, 10, 10], false],
+    'Klimmzüge':              [[0, 0, 0, 0, 0], [8, 7, 6], false, [6, 7, 7, 8, 9]],
     'Liegestütze':            [[0, 0, 0, 0, 0], [20, 16, 14], false, [16, 18, 18, 20, 22]],
+    'Dips':                   [[0, 0, 0, 0, 0], [12, 10, 9], false, [9, 10, 11, 11, 12]],
     'Latzug (mittelbreit)':   [[57.5, 60, 62.5, 62.5, 65], [12, 10, 9], true],
     'Latzug (V-Bar)':         [[55, 55, 57.5, 57.5, 60], [10, 10, 9], false],
     'Smith Bent Over Row':    [[40, 45, 45, 47.5, 50], [12, 10, 10], true],
@@ -209,7 +232,7 @@
   });
 
   // metadata per training day for the Verlauf group list
-  const DAY_COLOR = { Brust: 'Brust', Rücken: 'Rücken', Schulter: 'Schulter', Arm: 'Bizeps', Beine: 'Beine' };
+  const DAY_COLOR = { Allgemein: 'Core', Brust: 'Brust', Rücken: 'Rücken', Schulter: 'Schulter', Arm: 'Bizeps', Beine: 'Beine' };
   const dayMeta = (d) => {
     const exs = EXERCISES.filter((e) => e.day === d);
     // Use EX_LOG (built from real exercise data) instead of session.type —
@@ -285,8 +308,10 @@
   window.FT = {
     MUSCLES, EXERCISES, SESSIONS, RECOVERY, RECOMMENDATION, DETECTED_SETS, PENDING_SESSIONS, WEEK,
     EX_LOG: {}, EX_LOG_FULL: {}, // start empty; populated from real backend data
-    DAYS: ['Brust', 'Rücken', 'Schulter', 'Arm', 'Beine'],
-    dayLabel: (d) => ({ Brust: 'Brust', Rücken: 'Rücken', Schulter: 'Schulter', Arm: 'Arme', Beine: 'Beine' }[d] || d),
+    // DAYS = alle Bereiche (Anzeige-Reihenfolge), SPLIT = nur der rotierende 5er-Split
+    DAYS: ['Allgemein', 'Brust', 'Rücken', 'Schulter', 'Arm', 'Beine'],
+    SPLIT: ['Brust', 'Rücken', 'Schulter', 'Arm', 'Beine'],
+    dayLabel: (d) => ({ Allgemein: 'Allgemein', Brust: 'Brust', Rücken: 'Rücken', Schulter: 'Schulter', Arm: 'Arme', Beine: 'Beine' }[d] || d),
     dayMeta,
     PROFILE_DEFAULTS: {
       name: 'Alex', age: 28, weight: 78, height: 182, sex: 'Männlich',
@@ -315,6 +340,7 @@
     // compact payload of the last sessions per exercise, for the AI request
     recentData: () => EXERCISES.map((e) => ({
       name: e.name, tag: e.day, muscle: e.muscle,
+      gewichtsangabe: e.barTip || 'Zahl am Gewichtsblock/Kabel',
       bodyweight: (window.FT.EX_LOG[e.name] || [{}])[0].bw || false,
       sessions: (window.FT.EX_LOG[e.name] || []).map((s) => ({ date: s.date, kg: s.w, topReps: s.topReps })),
     })),
@@ -328,6 +354,7 @@
       const log = (window.FT && window.FT.EX_LOG) || {};
       let bestDay = null, bestIso = '';
       EXERCISES.forEach((ex) => {
+        if (ex.day === 'Allgemein') return;          // Allgemein zählt nicht für die Split-Rotation
         const entries = log[ex.name];
         if (!entries || !entries.length) return;
         const last = entries[entries.length - 1];  // EX_LOG is oldest→newest
@@ -340,12 +367,12 @@
       if (manual.length) {
         const lastM = manual.reduce((a, b) => (b.t > a.t ? b : a));
         const ex = EXERCISES.find((e) => e.name === lastM.name);
-        if (ex) return ex.day;
+        if (ex && ex.day !== 'Allgemein') return ex.day;
       }
       return null;
     },
     nextDay: function () {
-      const order = ['Brust', 'Rücken', 'Schulter', 'Arm', 'Beine'];
+      const order = this.SPLIT;
       const last = this.lastTrainedDay();
       const i = order.indexOf(last);
       return i < 0 ? order[0] : order[(i + 1) % order.length];

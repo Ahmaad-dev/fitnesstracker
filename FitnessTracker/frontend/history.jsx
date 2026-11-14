@@ -308,7 +308,7 @@ function ExerciseProgressCard({ ex, ai, goKI }) {
   );
 }
 
-const DAY_TITLE = { Brust: 'Brust', Rücken: 'Rücken', Schulter: 'Schulter', Arm: 'Arme', Beine: 'Beine' };
+const DAY_TITLE = { Allgemein: 'Allgemein', Brust: 'Brust', Rücken: 'Rücken', Schulter: 'Schulter', Arm: 'Arme', Beine: 'Beine' };
 
 /* Verlauf level 1 — muscle-group cards */
 function HistoryScreen({ onOpenDay }) {

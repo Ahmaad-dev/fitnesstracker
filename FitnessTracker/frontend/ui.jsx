@@ -109,7 +109,7 @@ function BarTip({ tip, style = {} }) {
       display: 'inline-flex', alignItems: 'center', gap: 5,
       fontSize: 11, fontWeight: 500, color: 'var(--text-faint)',
       background: 'var(--surface-2)', border: '1px solid var(--border)',
-      borderRadius: 999, padding: '3px 9px 3px 7px', lineHeight: 1.25, whiteSpace: 'nowrap',
+      borderRadius: 999, padding: '3px 9px 3px 7px', lineHeight: 1.25, whiteSpace: 'normal', maxWidth: '100%',
       ...style,
     }}>
       <Icon name="info" size={11} color="var(--text-faint)" />{tip}
