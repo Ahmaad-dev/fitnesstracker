@@ -298,9 +298,12 @@
     if (window.FT) {
       const wl = window.FT.EX_LOG;
       if (wl[name]) wl[name].push(entry); else wl[name] = [entry];
+      // api-bridge setzt EX_LOG_FULL === EX_LOG → sonst würde der Satz doppelt
+      // (und ohne `sets`) angehängt und der Verlauf crasht bei entry.sets.map
       const wf = window.FT.EX_LOG_FULL;
-      if (wf[name]) wf[name].push({ date: 'Heute', w: W, topReps: bw ? R : null, bw });
-      else wf[name] = [{ date: 'Heute', w: W, topReps: bw ? R : null, bw }];
+      if (wf !== wl) {
+        if (wf[name]) wf[name].push(entry); else wf[name] = [entry];
+      }
     }
   };
   readManual().forEach((m) => applyManual(m.name, m.w, m.reps));

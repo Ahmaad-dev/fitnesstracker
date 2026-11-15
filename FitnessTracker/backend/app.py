@@ -329,6 +329,57 @@ def api_save_session():
     return jsonify({'ok': True, 'id': ts.id})
 
 
+# ── Manual set logging ───────────────────────────────────────────────────────
+# Manuell erfasste Sätze landen in einer "manuellen" TrainingSession des
+# gewählten Tages (garmin_activity_id = NULL). Gibt es für den Tag schon eine,
+# werden die Sätze an die passende Übung angehängt.
+
+@app.route('/api/manual', methods=['POST'])
+def api_manual_set():
+    if not session.get('authed'):
+        abort(401)
+    data = request.get_json(force=True, silent=True) or {}
+    name = (data.get('name') or '').strip()
+    muscle = (data.get('muscle') or '').strip()
+    day = (data.get('day') or '').strip() or 'Unbekannt'
+    try:
+        weight = float(data.get('w') or 0)
+        reps = int(data.get('reps') or 0)
+        count = int(data.get('sets') or 1)
+        date_iso = datetime.date.fromisoformat(str(data.get('date_iso') or '')).isoformat()
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'Ungültige Eingabe'}), 400
+    if not name or reps < 1 or weight < 0 or not (1 <= count <= 20):
+        return jsonify({'ok': False, 'error': 'Ungültige Eingabe'}), 400
+    if date_iso > datetime.date.today().isoformat():
+        return jsonify({'ok': False, 'error': 'Datum liegt in der Zukunft'}), 400
+
+    ts = (
+        TrainingSession.query
+        .filter_by(date_iso=date_iso, garmin_activity_id=None)
+        .order_by(TrainingSession.id.desc())
+        .first()
+    )
+    if ts is None:
+        ts = TrainingSession(date_iso=date_iso, training_day=day, duration_min=0,
+                             volume_kg=0, exercises_json='[]')
+        db.session.add(ts)
+
+    exercises: list[dict] = json.loads(ts.exercises_json or '[]')
+    target = next((e for e in exercises if e.get('name') == name), None)
+    if target is None:
+        target = {'name': name, 'muscle': muscle, 'sets': []}
+        exercises.append(target)
+    target['sets'].extend({'w': weight, 'r': reps, 'wu': False} for _ in range(count))
+
+    ts.exercises_json = json.dumps(exercises, ensure_ascii=False)
+    ts.volume_kg = sum(
+        s.get('w', 0) * s.get('r', 0) for e in exercises for s in e.get('sets', [])
+    )
+    db.session.commit()
+    return jsonify({'ok': True, 'id': ts.id})
+
+
 # ── AI endpoint ───────────────────────────────────────────────────────────────
 
 @app.route('/api/ai', methods=['POST'])

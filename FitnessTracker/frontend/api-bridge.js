@@ -57,7 +57,9 @@
   // ── 2. Load real data ─────────────────────────────────────────────────────
   // When the backend is reachable, always use real (possibly empty) DB data.
   // Mock data is only kept when the backend cannot be reached at all (offline/preview).
-  try {
+  // Lädt Sessions/Pending/KI-Cache vom Backend und baut EX_LOG neu auf.
+  // Wird beim Start und nach jedem manuell erfassten Satz aufgerufen.
+  async function loadData() {
     const data = await get('/api/data');
     // Replace mock sessions with real data (empty array = clean slate)
     window.FT.SESSIONS = data.sessions || [];
@@ -117,6 +119,10 @@
     }
     // Notify React app so it re-renders with the updated FT data
     document.dispatchEvent(new CustomEvent('ft-data-updated'));
+  }
+
+  try {
+    await loadData();
   } catch (err) {
     console.warn('[FTApi] Backend nicht erreichbar – Mock-Daten werden verwendet.', err);
   }
@@ -169,6 +175,26 @@
 
     /** Discard a pending session (marks it as imported, removes from sync queue). */
     discardSession: (id) => del('/api/pending/' + encodeURIComponent(id)),
+
+    /**
+     * Manuell erfasste Sätze speichern und danach die Daten neu laden.
+     * entry = { name, muscle, day, date_iso, w, reps, sets }
+     */
+    addManualSets: async (entry) => {
+      const r = await fetch('/api/manual', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry),
+      });
+      const json = await r.json().catch(() => ({}));
+      if (!r.ok || json.ok === false) throw new Error(json.error || `Speichern fehlgeschlagen (HTTP ${r.status})`);
+      await loadData();
+      return json;
+    },
+
+    /** Daten vom Backend neu laden (löst 'ft-data-updated' aus). */
+    reload: loadData,
 
     /** Persist today's AI coaching result to the server (syncs across devices). */
     saveAiCache: (result) => post('/api/ai/cache', { result }),

@@ -210,7 +210,7 @@ function ExerciseProgressCard({ ex, ai, goKI }) {
 
   const SetRows = ({ entry }) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {entry.sets.map((st, i) => (
+      {(entry.sets || []).map((st, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5 }}>
           <span className="mono" style={{ width: 18, color: 'var(--text-faint)', fontSize: 12 }}>{i + 1}</span>
           {st.wu
@@ -294,8 +294,8 @@ function ExerciseProgressCard({ ex, ai, goKI }) {
           </button>
           {open && (
             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {log.slice(0, -1).reverse().map((entry) => (
-                <div key={entry.date}>
+              {log.slice(0, -1).reverse().map((entry, i) => (
+                <div key={`${entry.date_iso || entry.date}-${i}`}>
                   <div className="mono" style={{ fontSize: 11.5, color: 'var(--text-faint)', marginBottom: 8 }}>{entry.date}</div>
                   <SetRows entry={entry} />
                 </div>
