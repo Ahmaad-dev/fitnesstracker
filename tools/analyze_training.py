@@ -31,6 +31,7 @@ MUSCLES: dict[str, dict[str, float]] = {
     'Liegestütze': {'Brust': 1, 'Trizeps': .5},
     'Dips': {'Trizeps': 1, 'Brust': .5},
     'Klimmzüge': {'Rücken': 1, 'Bizeps': .5},
+    'Sit-Ups Schrägbank (mit Gewicht)': {'Bauch': 1},
     'Latzug (mittelbreit)': {'Rücken': 1, 'Bizeps': .5},
     'Latzug (V-Bar)': {'Rücken': 1, 'Bizeps': .5},
     'Smith Bent Over Row': {'Rücken': 1, 'Bizeps': .5, 'hint. Schulter': .5},
@@ -60,7 +61,7 @@ MUSCLES: dict[str, dict[str, float]] = {
     'Wadenheben Maschine (stehend)': {'Waden': 1},
 }
 MUSCLE_ORDER = ['Brust', 'Rücken', 'vord. Schulter', 'seitl. Schulter', 'hint. Schulter', 'Trapez',
-                'Bizeps', 'Trizeps', 'Quadrizeps', 'Beinbeuger', 'Gesäß', 'Waden', 'Adduktoren', 'Abduktoren']
+                'Bizeps', 'Trizeps', 'Quadrizeps', 'Beinbeuger', 'Gesäß', 'Waden', 'Adduktoren', 'Abduktoren', 'Bauch']
 
 
 def load_sessions(db: str, start: dt.date | None, end: dt.date | None) -> list[dict]:
