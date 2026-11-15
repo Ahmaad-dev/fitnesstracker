@@ -36,3 +36,5 @@ Thumbs.db
 # additional files to ignore
 .github
 .vscode
+# Frontend-Build
+node_modules/

@@ -3,49 +3,36 @@
  *
  * Loaded immediately after data.js.  Responsibilities:
  *   1. Check authentication → redirect to /login if not logged in.
- *   2. Fetch real training data from the backend and merge it into window.FT.
- *   3. Expose window.FTApi with helpers used by app.jsx:
- *        sync()         – trigger Garmin sync, returns { pending }
- *        aiComplete()   – send AI prompt to backend, returns raw text
- *        saveSession()  – persist a finalised assignment to the DB
- *        logout()       – clear server session and redirect to /login
- *
- * Everything is async; failures fall back to mock data silently so
- * the app still works without a backend (Figma / static preview).
+ *   2. Fetch real training data from the backend into window.FT
+ *      (SESSIONS, PENDING_SESSIONS, EX_LOG, WEEK, stats, AI_CACHE).
+ *   3. Expose window.FTApi with helpers used by the screens. Every call that
+ *      changes data reloads it afterwards and fires 'ft-data-updated'.
  */
 (async function () {
   'use strict';
 
   // ── helpers ──────────────────────────────────────────────────────────────
-  const get = (url) =>
-    fetch(url, { credentials: 'same-origin' }).then((r) => {
-      if (!r.ok) throw new Error(`GET ${url} → ${r.status}`);
-      return r.json();
-    });
-
-  const post = (url, body) =>
-    fetch(url, {
-      method: 'POST',
+  // JSON-Request; wirft mit dem Fehlertext des Backends (json.error), falls vorhanden
+  const request = async (method, url, body) => {
+    const r = await fetch(url, {
+      method,
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }).then((r) => {
-      if (!r.ok) throw new Error(`POST ${url} → ${r.status}`);
-      return r.json();
+      headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
     });
-
-  const del = (url) =>
-    fetch(url, { method: 'DELETE', credentials: 'same-origin' }).then((r) => {
-      if (!r.ok) throw new Error(`DELETE ${url} → ${r.status}`);
-      return r.json();
-    });
+    const json = await r.json().catch(() => ({}));
+    if (!r.ok || json.ok === false) throw new Error(json.error || `${method} ${url} → HTTP ${r.status}`);
+    return json;
+  };
+  const get = (url) => request('GET', url);
+  const post = (url, body) => request('POST', url, body);
 
   // ── 1. Auth check ─────────────────────────────────────────────────────────
   let me;
   try {
     me = await get('/api/me');
   } catch (_) {
-    // Backend unreachable (static file server / Figma) → run in mock mode
+    // Backend nicht erreichbar (statischer Fileserver) → leere App anzeigen
     me = { loggedIn: true };
   }
 
@@ -55,13 +42,10 @@
   }
 
   // ── 2. Load real data ─────────────────────────────────────────────────────
-  // When the backend is reachable, always use real (possibly empty) DB data.
-  // Mock data is only kept when the backend cannot be reached at all (offline/preview).
-  // Lädt Sessions/Pending/KI-Cache vom Backend und baut EX_LOG neu auf.
-  // Wird beim Start und nach jedem manuell erfassten Satz aufgerufen.
+  // Lädt Einheiten/Pending/KI-Cache vom Backend und baut EX_LOG + Woche neu auf.
+  // Wird beim Start und nach jeder Änderung (Speichern, Bearbeiten, Löschen) aufgerufen.
   async function loadData() {
     const data = await get('/api/data');
-    // Replace mock sessions with real data (empty array = clean slate)
     window.FT.SESSIONS = data.sessions || [];
     // Re-derive session.type from the exercises it contains, because the stored
     // training_day (dayGuess) is often wrong for weekend sessions.
@@ -80,7 +64,7 @@
     window.FT.PENDING_SESSIONS = data.pending || [];
     window.FT.AI_CACHE = data.ai_cache || null;   // today's AI result from server
 
-    // Build EX_LOG + EX_LOG_FULL from real sessions.
+    // Build EX_LOG from real sessions (one entry per session and exercise).
     // Only working sets (wu != true) are used; chart value = max weight per session.
     const exLog = {};
     // Sessions arrive newest-first; reverse to get oldest→newest for charts.
@@ -107,13 +91,8 @@
       });
     });
     window.FT.EX_LOG = exLog;
-    window.FT.EX_LOG_FULL = exLog;  // same data; both read by charts
-    // Clear the mock weekly overview; it will fill once real sessions exist
-    window.FT.WEEK = [
-      { d: 'Mo', sets: null }, { d: 'Di', sets: null }, { d: 'Mi', sets: null },
-      { d: 'Do', sets: null }, { d: 'Fr', sets: null },
-      { d: 'Sa', sets: null }, { d: 'So', sets: null },
-    ];
+    window.FT.EX_LOG_FULL = exLog;  // the zoomed chart reads the same data
+    window.FT.WEEK = window.FT.computeWeek(window.FT.SESSIONS);
     if (typeof data.streak === 'number') {
       window.FT.stats = { streak: data.streak };
     }
@@ -124,48 +103,44 @@
   try {
     await loadData();
   } catch (err) {
-    console.warn('[FTApi] Backend nicht erreichbar – Mock-Daten werden verwendet.', err);
+    console.warn('[FTApi] Backend nicht erreichbar – App startet ohne Daten.', err);
   }
 
   // ── 3. Expose FTApi ───────────────────────────────────────────────────────
   window.FTApi = {
-    /**
-     * Trigger a Garmin sync.
-     * Returns { ok, pending: [...PENDING_SESSIONS entries] }
-     */
-    sync: () =>
-      fetch('/api/garmin/sync', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: '{}',
-      }).then(async (r) => {
-        const json = await r.json().catch(() => ({}));
-        if (!r.ok || json.ok === false) {
-          // Echten Fehlertext aus Backend-Response verwenden
-          throw new Error(json.error || `Sync fehlgeschlagen (HTTP ${r.status})`);
-        }
-        return json;
-      }),
+    /** Trigger a Garmin sync. Returns { ok, pending: [...PENDING_SESSIONS entries] } */
+    sync: () => post('/api/garmin/sync', {}),
+
+    /** Send the pre-built coach prompt to the backend → OpenAI. Returns the raw response text. */
+    aiComplete: async (prompt) => (await post('/api/ai', { prompt })).response,
 
     /**
-     * Send the pre-built coach prompt to the backend → OpenAI.
-     * Returns the raw response string (same as window.claude.complete would).
-     */
-    aiComplete: async (prompt) => {
-      const result = await post('/api/ai', { prompt });
-      return result.response;  // raw text from the model
-    },
-
-    /**
-     * Persist a finalised session to the database.
+     * Persist a finalised session to the database, then reload.
      * rawSession   – the GarminActivity / pending session object
      * assignments  – { day, groups: [{ex, setIds}], warmup: {setId: bool} }
      */
-    saveSession: (rawSession, assignments) =>
-      post('/api/sessions', { raw: rawSession, assignments }).catch((err) => {
+    saveSession: async (rawSession, assignments) => {
+      try {
+        await post('/api/sessions', { raw: rawSession, assignments });
+        await loadData();
+      } catch (err) {
         console.warn('[FTApi] Session konnte nicht gespeichert werden:', err);
-      }),
+      }
+    },
+
+    /** Gespeicherte Einheit ändern: exercises = [{name, muscle, sets:[{w,r,wu}]}] (leer → Einheit wird gelöscht). */
+    updateSession: async (dbId, exercises) => {
+      const res = await request('PUT', `/api/sessions/${dbId}`, { exercises });
+      await loadData();
+      return res;
+    },
+
+    /** Einheit löschen; requeue=true → Garmin-Aktivität taucht wieder im Sync zur Zuordnung auf. */
+    deleteSession: async (dbId, requeue) => {
+      const res = await request('DELETE', `/api/sessions/${dbId}${requeue ? '?requeue=1' : ''}`);
+      await loadData();
+      return res;
+    },
 
     /** Log out and return to the login page. */
     logout: () =>
@@ -174,23 +149,13 @@
       }),
 
     /** Discard a pending session (marks it as imported, removes from sync queue). */
-    discardSession: (id) => del('/api/pending/' + encodeURIComponent(id)),
+    discardSession: (id) => request('DELETE', '/api/pending/' + encodeURIComponent(id)),
 
-    /**
-     * Manuell erfasste Sätze speichern und danach die Daten neu laden.
-     * entry = { name, muscle, day, date_iso, w, reps, sets }
-     */
+    /** Manuell erfasste Sätze speichern und neu laden. entry = { name, muscle, day, date_iso, w, reps, sets } */
     addManualSets: async (entry) => {
-      const r = await fetch('/api/manual', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(entry),
-      });
-      const json = await r.json().catch(() => ({}));
-      if (!r.ok || json.ok === false) throw new Error(json.error || `Speichern fehlgeschlagen (HTTP ${r.status})`);
+      const res = await post('/api/manual', entry);
       await loadData();
-      return json;
+      return res;
     },
 
     /** Daten vom Backend neu laden (löst 'ft-data-updated' aus). */

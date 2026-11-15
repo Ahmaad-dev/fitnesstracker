@@ -1,8 +1,16 @@
 # ── FitTracker Backend + Frontend ───────────────────────────────────────────
-# Single-stage Python 3.12 image.
-# Frontend (static JS/HTML/CSS) is served directly by Flask.
+# Stage 1 (node): kompiliert das Frontend (JSX → JS, Prod-React) — siehe frontend-build/build.mjs
+# Stage 2 (python): Flask-Backend, liefert das kompilierte Frontend aus.
 # Data directory is mounted as a Docker volume at /data.
 # ─────────────────────────────────────────────────────────────────────────────
+
+FROM node:20-alpine AS frontend
+WORKDIR /build
+COPY frontend-build/package.json ./
+RUN npm install --no-audit --no-fund
+COPY frontend-build/build.mjs ./
+COPY frontend/ /src/frontend/
+RUN node build.mjs /src/frontend /out/frontend
 
 FROM python:3.12-slim
 
@@ -20,8 +28,8 @@ RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 # ── Backend source ────────────────────────────────────────────────────────────
 COPY backend/ /app/backend/
 
-# ── Frontend source ───────────────────────────────────────────────────────────
-COPY frontend/ /app/frontend/
+# ── Frontend (kompiliert aus Stage 1) ────────────────────────────────────────
+COPY --from=frontend /out/frontend/ /app/frontend/
 
 # ── Runtime ───────────────────────────────────────────────────────────────────
 VOLUME /data

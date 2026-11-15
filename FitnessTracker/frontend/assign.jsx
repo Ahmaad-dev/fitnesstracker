@@ -60,7 +60,7 @@ function ExercisePicker({ onPick }) {
 }
 
 function AssignScreen({ variant = 'dnd', session, onSaved, go }) {
-  const D = (session && session.sets) || window.FT.DETECTED_SETS;
+  const D = (session && session.sets) || [];
   const sd = (id) => D.find(d => d.id === id);
   const sidx = (id) => D.findIndex(d => d.id === id) + 1;
 
@@ -274,7 +274,7 @@ function AssignScreen({ variant = 'dnd', session, onSaved, go }) {
       <div className="ft-pad" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ flex: 1, height: 6, borderRadius: 999, background: 'var(--surface-3)', overflow: 'hidden' }}>
-            <div style={{ width: `${(assignedCount / total) * 100}%`, height: '100%', background: 'var(--accent)', borderRadius: 999, transition: 'width .3s' }} />
+            <div style={{ width: `${total ? (assignedCount / total) * 100 : 0}%`, height: '100%', background: 'var(--accent)', borderRadius: 999, transition: 'width .3s' }} />
           </div>
           <span className="mono tnum" style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>{assignedCount}/{total} zugeordnet</span>
         </div>

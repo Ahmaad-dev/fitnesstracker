@@ -15,7 +15,7 @@ from flask import (
 )
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from models import db, TrainingSession, GarminActivity, AiCache
+from models import db, TrainingSession, GarminActivity, AiCache, local_today
 
 log = logging.getLogger(__name__)
 
@@ -70,6 +70,42 @@ with app.app_context():
     except Exception:
         db.session.rollback()
         log.exception('Migration fehlgeschlagen – ignoriert')
+
+
+# ── Tägliches DB-Backup ──────────────────────────────────────────────────────
+# Einmal pro Tag (beim ersten Datenabruf) eine konsistente Kopie der SQLite-DB
+# nach DATA_DIR/backups/ schreiben; die letzten BACKUP_KEEP Tage bleiben erhalten.
+# Schützt vor kaputter DB (nolock auf SMB) und versehentlichem Löschen.
+
+BACKUP_DIR = os.path.join(DATA_DIR, 'backups')
+BACKUP_KEEP = int(os.getenv('BACKUP_KEEP', '14'))
+_last_backup_day: str | None = None
+
+
+def _daily_backup() -> None:
+    global _last_backup_day
+    day = local_today().isoformat()
+    if _last_backup_day == day:
+        return
+    target = os.path.join(BACKUP_DIR, f'fitness-{day}.db')
+    try:
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+        if not os.path.exists(target) and os.path.exists(_db_file):
+            src = sqlite3.connect(f'file://{_db_file}?nolock=1', uri=True)
+            dst = sqlite3.connect(f'file://{target}?nolock=1', uri=True)
+            try:
+                src.backup(dst)
+            finally:
+                dst.close()
+                src.close()
+            log.info('Backup erstellt: %s', target)
+        backups = sorted(f for f in os.listdir(BACKUP_DIR)
+                         if f.startswith('fitness-') and f.endswith('.db'))
+        for old in backups[:-BACKUP_KEEP]:
+            os.remove(os.path.join(BACKUP_DIR, old))
+        _last_backup_day = day
+    except Exception:
+        log.exception('Backup fehlgeschlagen')
 
 
 # ── Health check (für Container Apps Liveness/Readiness Probe) ──────────────
@@ -143,10 +179,12 @@ def api_me():
 def api_data():
     if not session.get('authed'):
         abort(401)
+    _daily_backup()
+    # Alle Einheiten laden — die Fortschritts-Diagramme und der KI-Coach brauchen
+    # die komplette Historie (früher limit(30) ≈ nur ~6 Wochen).
     sessions_db = (
         TrainingSession.query
-        .order_by(TrainingSession.date_iso.desc())
-        .limit(30)
+        .order_by(TrainingSession.date_iso.desc(), TrainingSession.id.desc())
         .all()
     )
     sync_from = os.getenv('GARMIN_SYNC_FROM_DATE', '').strip()
@@ -159,7 +197,7 @@ def api_data():
             pass
     pending_db = pending_q.order_by(GarminActivity.start_time.desc()).all()
     has_real = bool(sessions_db or pending_db)
-    today_key = datetime.date.today().isoformat()
+    today_key = local_today().isoformat()
     ai_row = AiCache.query.get(today_key)
     ai_cache = {'date': today_key, 'data': json.loads(ai_row.result_json)} if ai_row else None
     return jsonify({
@@ -177,7 +215,7 @@ def _compute_streak(sessions: list) -> int:
     dates = sorted(
         {s.date_iso for s in sessions if s.date_iso}, reverse=True
     )
-    today = datetime.date.today()
+    today = local_today()
     streak = 0
     for i, d in enumerate(dates):
         try:
@@ -202,7 +240,7 @@ def api_ai_cache_save():
     result = body.get('result')
     if not result:
         return jsonify({'ok': False, 'error': 'missing result'}), 400
-    today_key = datetime.date.today().isoformat()
+    today_key = local_today().isoformat()
     row = AiCache.query.get(today_key)
     if row:
         row.result_json = json.dumps(result, ensure_ascii=False)
@@ -302,7 +340,7 @@ def api_save_session():
         s.get('w', 0) * s.get('r', 0)
         for ex in exercises for s in ex.get('sets', [])
     )
-    date_iso = raw.get('date_iso') or datetime.date.today().isoformat()
+    date_iso = raw.get('date_iso') or local_today().isoformat()
     training_day = assignments.get('day') or raw.get('dayGuess', 'Unbekannt')
 
     ts = TrainingSession(
@@ -329,6 +367,66 @@ def api_save_session():
     return jsonify({'ok': True, 'id': ts.id})
 
 
+# ── Edit / delete a saved session ────────────────────────────────────────────
+
+def _clean_exercises(raw) -> list[dict] | None:
+    """Validiert die vom Client geschickte Übungsliste; None bei ungültigen Daten."""
+    if not isinstance(raw, list):
+        return None
+    out: list[dict] = []
+    for e in raw:
+        if not isinstance(e, dict) or not (e.get('name') or '').strip():
+            return None
+        sets = []
+        for s in e.get('sets') or []:
+            try:
+                w, r = float(s.get('w') or 0), int(s.get('r') or 0)
+            except (TypeError, ValueError, AttributeError):
+                return None
+            if w < 0 or r < 0:
+                return None
+            sets.append({'w': w, 'r': r, 'wu': bool(s.get('wu'))})
+        if sets:   # Übungen ohne Sätze fallen weg
+            out.append({'name': e['name'].strip(), 'muscle': e.get('muscle') or '', 'sets': sets})
+    return out
+
+
+@app.route('/api/sessions/<int:sid>', methods=['PUT'])
+def api_update_session(sid: int):
+    if not session.get('authed'):
+        abort(401)
+    ts = db.session.get(TrainingSession, sid) or abort(404)
+    data = request.get_json(force=True, silent=True) or {}
+    exercises = _clean_exercises(data.get('exercises'))
+    if exercises is None:
+        return jsonify({'ok': False, 'error': 'Ungültige Eingabe'}), 400
+    if not exercises:   # alles gelöscht → ganze Einheit löschen
+        db.session.delete(ts)
+        db.session.commit()
+        return jsonify({'ok': True, 'deleted': True})
+    ts.exercises_json = json.dumps(exercises, ensure_ascii=False)
+    ts.volume_kg = sum(s['w'] * s['r'] for e in exercises for s in e['sets'])
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/sessions/<int:sid>', methods=['DELETE'])
+def api_delete_session(sid: int):
+    if not session.get('authed'):
+        abort(401)
+    ts = db.session.get(TrainingSession, sid) or abort(404)
+    requeued = False
+    # ?requeue=1 → die Garmin-Aktivität taucht wieder zur Zuordnung im Sync auf
+    if request.args.get('requeue') == '1' and ts.garmin_activity_id:
+        act = GarminActivity.query.filter_by(activity_id=ts.garmin_activity_id).first()
+        if act:
+            act.imported = False
+            requeued = True
+    db.session.delete(ts)
+    db.session.commit()
+    return jsonify({'ok': True, 'requeued': requeued})
+
+
 # ── Manual set logging ───────────────────────────────────────────────────────
 # Manuell erfasste Sätze landen in einer "manuellen" TrainingSession des
 # gewählten Tages (garmin_activity_id = NULL). Gibt es für den Tag schon eine,
@@ -351,7 +449,7 @@ def api_manual_set():
         return jsonify({'ok': False, 'error': 'Ungültige Eingabe'}), 400
     if not name or reps < 1 or weight < 0 or not (1 <= count <= 20):
         return jsonify({'ok': False, 'error': 'Ungültige Eingabe'}), 400
-    if date_iso > datetime.date.today().isoformat():
+    if date_iso > local_today().isoformat():
         return jsonify({'ok': False, 'error': 'Datum liegt in der Zukunft'}), 400
 
     ts = (

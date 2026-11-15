@@ -1,4 +1,5 @@
-/* FitTracker — mock data + domain helpers (plain JS, on window.FT)
+/* FitTracker — Übungskatalog + Domain-Helfer (plain JS, auf window.FT).
+   Echte Daten (Einheiten, Verläufe, offene Garmin-Einheiten) lädt api-bridge.js.
    Personalisiert auf den 5er-Split des Nutzers: Brust · Rücken · Schulter · Arm · Beine */
 (function () {
   // muscle groups → hue var
@@ -64,34 +65,6 @@
     { name: 'Wadenheben Maschine (stehend)', day: 'Beine', muscle: 'Beine', pattern: 'raise', img: 'Standing_Calf_Raises' },
   ];
 
-  // training history — start empty; real data comes from api-bridge.js
-  const SESSIONS = [];
-
-  // recovery — derived from real sessions, start empty
-  const RECOVERY = [];
-
-  // AI recommendation — the user picks the exercise; the AI recommends the LOAD.
-  // Today it surfaces Rückentag (longest rested) with progressive-overload loads.
-  const RECOMMENDATION = {
-    day: 'Rücken',
-    headline: 'Rückentag',
-    reason: 'Rücken & Trapez sind seit 6 Tagen erholt – am längsten nicht trainiert. Brust (gestern) und Beine sind noch in Erholung.',
-    facts: [
-      { k: 'Rücken zuletzt',  v: 'vor 6 Tagen' },
-      { k: 'Brust zuletzt',   v: 'gestern' },
-      { k: 'Beine zuletzt',   v: 'vor 3 Tagen' },
-    ],
-    // loads computed from the user's last Rückentag sets
-    weights: [
-      { name: 'Latzug (mittelbreit)',  muscle: 'Rücken', last: '65 kg × 9',  suggest: 67.5, delta: 2.5, reps: '8–10',  note: 'Beide Arbeitssätze sauber → +2,5 kg.' },
-      { name: 'Latzug (V-Bar)',        muscle: 'Rücken', last: '60 kg × 9',  suggest: 62.5, delta: 2.5, reps: '8–10',  note: 'Obere Wdh-Grenze erreicht → steigern.' },
-      { name: 'Smith Bent Over Row',   muscle: 'Rücken', last: '50 kg × 10', suggest: 52.5, delta: 2.5, reps: '10–12', note: 'Alle Sätze ≥10 Wdh → erhöhen.' },
-      { name: 'Lever Low Row',         muscle: 'Rücken', last: '55 kg × 10', suggest: 57.5, delta: 2.5, reps: '10–12', note: 'Saubere Ausführung → +2,5 kg.' },
-      { name: 'Rudern am Kabel',       muscle: 'Rücken', last: '60 kg × 10', suggest: 62.5, delta: 2.5, reps: '10–12', note: 'Obere Wdh-Grenze → steigern.' },
-      { name: 'Shrugs',                muscle: 'Trapez', last: '34 kg × 12', suggest: 36,   delta: 2,   reps: '12–15', note: '12 saubere Wdh → kleine Steigerung.' },
-    ],
-  };
-
   // ── animierte Übungs-GIFs (jsDelivr-CDN, kein API-Key, lädt direkt als <img>) ──
   // Quelle: github.com/JahelCuadrado/ExerciseGymGifsDB (ExerciseDB-GIF-Set)
   // Wert = "<muskel-ordner>/<slug>" → volle URL via gifFor(name)
@@ -131,106 +104,6 @@
     'Wadenheben Maschine (stehend)': 'calves/lever-standing-calf-raise',
   };
 
-  // detected sets from a watch sync (no exercise known yet)
-  const DETECTED_SETS = [
-    { id: 'd1', reps: 12, dur: 40, rest: 95,  hr: 132 },
-    { id: 'd2', reps: 10, dur: 34, rest: 110, hr: 140 },
-    { id: 'd3', reps: 9,  dur: 31, rest: 120, hr: 146 },
-    { id: 'd4', reps: 10, dur: 36, rest: 90,  hr: 138 },
-    { id: 'd5', reps: 9,  dur: 33, rest: 105, hr: 142 },
-    { id: 'd6', reps: 12, dur: 39, rest: 85,  hr: 134 },
-    { id: 'd7', reps: 15, dur: 42, rest: 75,  hr: 129 },
-    { id: 'd8', reps: 12, dur: 37, rest: 0,   hr: 133 },
-  ];
-
-  // ── mehrere erkannte Trainingseinheiten (z. B. 3 Tage nicht gesynct) ──
-  // jede Einheit hat eigene erkannte Sätze; der Nutzer ordnet sie einzeln zu.
-  const mkSets = (prefix, arr) => arr.map((s, i) => ({ id: `${prefix}${i + 1}`, reps: s[0], dur: s[1], rest: s[2], hr: s[3] }));
-  const PENDING_SESSIONS = [
-    {
-      id: 'p1', date: 'Di, 2. Juni', weekday: 'Dienstag', dayGuess: 'Schulter',
-      sets: mkSets('a', [[15, 38, 70, 124], [12, 35, 95, 132], [11, 33, 100, 136], [15, 40, 80, 128], [12, 36, 105, 134], [11, 34, 110, 138], [15, 41, 75, 126], [12, 37, 0, 130]]),
-    },
-    {
-      id: 'p2', date: 'Mi, 3. Juni', weekday: 'Mittwoch', dayGuess: 'Brust',
-      sets: mkSets('b', [[12, 42, 90, 128], [9, 36, 115, 140], [8, 33, 120, 146], [8, 32, 120, 148], [10, 38, 100, 138], [9, 35, 110, 142], [10, 40, 95, 136], [20, 44, 105, 130], [16, 40, 0, 132]]),
-    },
-    {
-      id: 'p3', date: 'Do, 4. Juni', weekday: 'Donnerstag', dayGuess: 'Arm',
-      sets: mkSets('c', [[12, 36, 80, 122], [10, 33, 100, 130], [9, 31, 105, 134], [12, 35, 90, 128], [10, 32, 100, 132], [12, 37, 85, 126], [10, 34, 95, 130]]),
-    },
-  ];
-
-  // weekly activity (Mon..Sun, current week) — sets per day, null = no training
-  const WEEK = [
-    { d: 'Mo', sets: 21, type: 'Beine' },
-    { d: 'Di', sets: null },
-    { d: 'Mi', sets: 13, type: 'Brust' },
-    { d: 'Do', sets: null },
-    { d: 'Fr', sets: null },
-    { d: 'Sa', sets: null },
-    { d: 'So', sets: null },
-  ];
-
-  // ── per-exercise training log (oldest→newest) for the Verlauf progression charts ──
-  const DAY_DATES = {
-    Allgemein: ['5. Mai', '12. Mai', '19. Mai', '26. Mai', '2. Juni'],
-    Brust:    ['8. Mai', '15. Mai', '22. Mai', '29. Mai', '3. Juni'],
-    Rücken:   ['1. Mai', '8. Mai', '15. Mai', '22. Mai', '29. Mai'],
-    Schulter: ['2. Mai', '9. Mai', '16. Mai', '23. Mai', '30. Mai'],
-    Arm:      ['3. Mai', '10. Mai', '17. Mai', '24. Mai', '31. Mai'],
-    Beine:    ['4. Mai', '11. Mai', '18. Mai', '25. Mai', '1. Juni'],
-  };
-  // spec per exercise: [topWeights×5, workingReps, warmup?, repsSeries?(bodyweight)]
-  const LOG_SPEC = {
-    'Schrägbankdrücken (KH)': [[22, 24, 26, 26, 28], [10, 9, 8], true],
-    'Flachbankdrücken (KH)':  [[28, 28, 30, 30, 32], [10, 9, 8], true],
-    'Butterfly Maschine':     [[50, 52.5, 55, 55, 60], [12, 10, 10], false],
-    'Klimmzüge':              [[0, 0, 0, 0, 0], [8, 7, 6], false, [6, 7, 7, 8, 9]],
-    'Liegestütze':            [[0, 0, 0, 0, 0], [20, 16, 14], false, [16, 18, 18, 20, 22]],
-    'Dips':                   [[0, 0, 0, 0, 0], [12, 10, 9], false, [9, 10, 11, 11, 12]],
-    'Latzug (mittelbreit)':   [[57.5, 60, 62.5, 62.5, 65], [12, 10, 9], true],
-    'Latzug (V-Bar)':         [[55, 55, 57.5, 57.5, 60], [10, 10, 9], false],
-    'Smith Bent Over Row':    [[40, 45, 45, 47.5, 50], [12, 10, 10], true],
-    'Lever Low Row':          [[40, 45, 50, 50, 55], [12, 10, 10], false],
-    'Rudern am Kabel':        [[50, 55, 55, 57.5, 60], [12, 10, 10], false],
-    'Shrugs':                 [[28, 30, 32, 32, 34], [15, 12], false],
-    'Schulterdrücken Maschine (seitliche Schulter)': [[40, 45, 45, 47.5, 50], [12, 10, 8], true],
-    'Seitheben Maschine':     [[20, 22.5, 25, 27.5, 30], [15, 12, 11], false],
-    'Reverse Butterfly':      [[25, 30, 32.5, 35, 32.5], [15, 12, 12], false],
-    'Bizeps Curls (SZ)':      [[10, 10, 12.5, 12.5, 15], [12, 10, 9], true],
-    'Trizepsdrücken (Kabel)': [[25, 27.5, 30, 30, 32.5], [12, 10, 9], false],
-    'Scottcurls (einarmig)':  [[10, 12, 12, 12, 14], [10, 9], false],
-    'Trizeps einarmig steh.': [[12.5, 12.5, 15, 15, 17.5], [12, 11], false],
-    'Hammercurls (Kabel)':    [[18, 20, 20, 22, 24], [12, 10], false],
-    'Trizeps Pushdown (Seil)':[[27.5, 30, 32.5, 32.5, 35], [12, 10], false],
-    'Squats (Langhantel)':    [[85, 90, 95, 95, 100], [8, 6, 6], true],
-    'Sled Hack Squat':        [[60, 70, 80, 80, 90], [12, 10, 9], true],
-    '45° Beinpresse':         [[180, 200, 200, 210, 220], [12, 10], false],
-    'Leg Extension (1-bein.)':[[30, 30, 32.5, 32.5, 35], [12, 11, 12], false],
-    'Leg Curl':               [[35, 40, 40, 42.5, 45], [12, 10, 10], false],
-    'Adduktorenmaschine sitzend':    [[40, 45, 45, 50, 50], [15, 12, 12], false],
-    'Wadenheben Maschine (stehend)': [[70, 80, 80, 90, 90], [15, 12, 12], false],
-  };
-  const EX_LOG = {};
-  EXERCISES.forEach((ex) => {
-    const spec = LOG_SPEC[ex.name]; if (!spec) return;
-    const [tops, reps, wu, repsSeries] = spec;
-    const dates = DAY_DATES[ex.day];
-    const bw = tops.every((t) => t === 0);
-    EX_LOG[ex.name] = tops.map((top, i) => {
-      if (bw) {
-        const rs = repsSeries[i];
-        const sets = [0, 4, 6].map((off) => ({ w: 0, r: Math.max(6, rs - off) }));
-        return { date: dates[i], w: 0, topReps: rs, bw: true, sets };
-      }
-      const sets = [];
-      if (wu && top > 0) sets.push({ w: Math.max(2.5, Math.round((top * 0.6) / 2.5) * 2.5), r: 12, wu: true });
-      reps.forEach((r) => sets.push({ w: top, r }));
-      return { date: dates[i], w: top, topReps: reps[0], bw: false, sets };
-    });
-  });
-
   // metadata per training day for the Verlauf group list
   const DAY_COLOR = { Allgemein: 'Core', Brust: 'Brust', Rücken: 'Rücken', Schulter: 'Schulter', Arm: 'Bizeps', Beine: 'Beine' };
   const dayMeta = (d) => {
@@ -253,64 +126,26 @@
     return { day: d, count: exs.length, last: latestDate || '—', colorMuscle: DAY_COLOR[d] };
   };
 
-  // ── erweiterte Verlaufsreihe: 15 Einheiten pro Übung (für das vergrößerte Diagramm) ──
-  // Die letzten 5 entsprechen EX_LOG; davor 10 ältere, niedrigere Werte (organischer Anstieg).
-  const FULL_N = 15;
-  const fmtDE = (dt) => `${dt.getDate()}.${dt.getMonth() + 1}.`;
-  const EX_LOG_FULL = {};
-  EXERCISES.forEach((ex) => {
-    const log = EX_LOG[ex.name]; if (!log || !log.length) return;
-    const bw = log[0].bw;
-    const known = log.map((p) => (bw ? p.topReps : p.w));   // 5 jüngste Werte
-    const first = known[0];
-    const back = bw ? 6 : (first > 120 ? 45 : first > 60 ? 22 : first > 20 ? 11 : 5);
-    const step = bw ? 1 : 2.5;
-    const olderCount = FULL_N - known.length;
-    const older = [];
-    for (let k = 0; k < olderCount; k++) {
-      const frac = k / olderCount;                          // 0 → ältester, ~1 → kurz vor first
-      let v = first - back * (1 - frac);
-      if (k % 4 === 1) v -= step;                           // kleine organische Delle
-      v = bw ? Math.max(6, Math.round(v)) : Math.max(step, Math.round(v / step) * step);
-      older.push(v);
-    }
-    const series = older.concat(known);                     // 15 Werte
-    const base = new Date(2026, 5, 4);                       // endet 4. Juni 2026
-    EX_LOG_FULL[ex.name] = series.map((v, i) => {
-      const dt = new Date(base); dt.setDate(base.getDate() - (FULL_N - 1 - i) * 7);
-      return { date: fmtDE(dt), w: bw ? 0 : v, topReps: bw ? v : null, bw };
+  // ── Wochenübersicht (Mo–So der aktuellen Woche) aus echten Einheiten ──
+  const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+  const emptyWeek = () => WEEKDAYS.map((d) => ({ d, sets: null }));
+  const computeWeek = (sessions) => {
+    const now = new Date();
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
+    return WEEKDAYS.map((d, i) => {
+      const iso = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i).toLocaleDateString('en-CA');
+      const today = (sessions || []).filter((s) => s.date_iso === iso);
+      if (!today.length) return { d, sets: null };
+      const main = today.reduce((a, b) => ((b.sets || 0) > (a.sets || 0) ? b : a));
+      return { d, sets: today.reduce((n, s) => n + (s.sets || 0), 0) || null, type: main.type };
     });
-  });
-
-  // ── manuell erfasste Sätze: persistieren + beim Laden wieder einspielen ──
-  // Nebenfeature (ohne Uhr/Sync). Hängt einen „Heute"-Punkt an EX_LOG + EX_LOG_FULL.
-  const MANUAL_KEY = 'ft_manual_v1';
-  const readManual = () => { try { return JSON.parse(localStorage.getItem(MANUAL_KEY) || '[]'); } catch (e) { return []; } };
-  const applyManual = (name, w, reps) => {
-    const ref = (window.FT ? window.FT.EX_LOG[name] : null) || EX_LOG[name];
-    const bw = ref && ref.length ? ref[0].bw : (Number(w) === 0);
-    const W = bw ? 0 : Number(w), R = Number(reps);
-    const entry = { date: 'Heute', w: W, topReps: R, bw, manual: true, sets: [{ w: W, r: R }] };
-    // Update closure (for initial replay before window.FT is ready)
-    if (EX_LOG[name]) EX_LOG[name].push(entry); else EX_LOG[name] = [entry];
-    if (EX_LOG_FULL[name]) EX_LOG_FULL[name].push({ date: 'Heute', w: W, topReps: bw ? R : null, bw });
-    // Also update window.FT.EX_LOG/EX_LOG_FULL when already initialized (live adds)
-    if (window.FT) {
-      const wl = window.FT.EX_LOG;
-      if (wl[name]) wl[name].push(entry); else wl[name] = [entry];
-      // api-bridge setzt EX_LOG_FULL === EX_LOG → sonst würde der Satz doppelt
-      // (und ohne `sets`) angehängt und der Verlauf crasht bei entry.sets.map
-      const wf = window.FT.EX_LOG_FULL;
-      if (wf !== wl) {
-        if (wf[name]) wf[name].push(entry); else wf[name] = [entry];
-      }
-    }
   };
-  readManual().forEach((m) => applyManual(m.name, m.w, m.reps));
 
   window.FT = {
-    MUSCLES, EXERCISES, SESSIONS, RECOVERY, RECOMMENDATION, DETECTED_SETS, PENDING_SESSIONS, WEEK,
-    EX_LOG: {}, EX_LOG_FULL: {}, // start empty; populated from real backend data
+    MUSCLES, EXERCISES,
+    // werden von api-bridge.js mit echten Daten befüllt
+    SESSIONS: [], PENDING_SESSIONS: [], WEEK: emptyWeek(), EX_LOG: {}, EX_LOG_FULL: {}, AI_CACHE: null,
+    computeWeek,
     // DAYS = alle Bereiche (Anzeige-Reihenfolge), SPLIT = nur der rotierende 5er-Split
     DAYS: ['Allgemein', 'Brust', 'Rücken', 'Schulter', 'Arm', 'Beine'],
     SPLIT: ['Brust', 'Rücken', 'Schulter', 'Arm', 'Beine'],
@@ -321,8 +156,8 @@
       goal: 'Muskelaufbau', level: 'Fortgeschritten',
       unit: 'kg', weekGoal: 5, watch: 'vívoactive 6', aiEnabled: true,
     },
-    stats: { streak: 3 },
-    weekSessions: () => (window.FT.WEEK || WEEK).filter((d) => d.sets != null).length,
+    stats: { streak: 0 },
+    weekSessions: () => (window.FT.WEEK || []).filter((d) => d.sets != null).length,
     todayLabel: (() => {
       const DAYS_DE   = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
       const MONTHS_DE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
@@ -364,15 +199,7 @@
         const iso = last.date_iso || '';
         if (iso > bestIso) { bestIso = iso; bestDay = ex.day; }
       });
-      if (bestDay) return bestDay;
-      // fallback: manuell erfasste Sätze
-      const manual = readManual();
-      if (manual.length) {
-        const lastM = manual.reduce((a, b) => (b.t > a.t ? b : a));
-        const ex = EXERCISES.find((e) => e.name === lastM.name);
-        if (ex && ex.day !== 'Allgemein') return ex.day;
-      }
-      return null;
+      return bestDay;
     },
     nextDay: function () {
       const order = this.SPLIT;
@@ -380,13 +207,5 @@
       const i = order.indexOf(last);
       return i < 0 ? order[0] : order[(i + 1) % order.length];
     },
-    // ── manuelles Logging (Nebenfeature) ──
-    // speichert einen manuell erfassten Satz, hängt ihn live an die Verläufe und persistiert ihn
-    addManualSet: (name, w, reps) => {
-      applyManual(name, w, reps);
-      const list = readManual(); list.push({ name, w: Number(w), reps: Number(reps), t: Date.now() });
-      try { localStorage.setItem(MANUAL_KEY, JSON.stringify(list)); } catch (e) {}
-    },
-    manualToday: () => readManual(),
   };
 })();

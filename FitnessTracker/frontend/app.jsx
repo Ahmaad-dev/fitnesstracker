@@ -157,6 +157,9 @@ function App() {
   React.useEffect(() => {
     const handler = () => {
       setDataVersion((v) => v + 1);
+      // Server ist die Quelle der Wahrheit für offene Garmin-Einheiten
+      // (z. B. nach „Einheit löschen & neu zuordnen")
+      setPending(window.FT.PENDING_SESSIONS || []);
       // If server returned today's AI result, apply it immediately (cross-device sync)
       const cache = window.FT && window.FT.AI_CACHE;
       if (cache && cache.date === window.FT.todayKey() && cache.data) {
@@ -207,7 +210,9 @@ function App() {
   }, [t.accent]);
 
   const go = (name) => { setRoute(name); };
-  const openSession = (s) => { setSession(s); setRoute('detail'); };
+  // merkt sich, ob die Detailansicht vom Dashboard oder aus „Alle Einheiten" kam
+  const [detailBack, setDetailBack] = React.useState('dashboard');
+  const openSession = (s) => { setDetailBack(route === 'sessions' ? 'sessions' : 'dashboard'); setSession(s); setRoute('detail'); };
   const openDay = (d) => { setDay(d); setRoute('historyDay'); };
   // einzelne erkannte Einheit zur Zuordnung öffnen
   const openAssign = (sess) => { setActiveSync(sess); setRoute('assign'); };
@@ -248,12 +253,13 @@ function App() {
   switch (route) {
     case 'history':    screen = <HistoryScreen onOpenDay={openDay} />; break;
     case 'historyDay': screen = <DayDetailScreen day={day} ai={ai} onBack={() => go('history')} goKI={() => go('recommend')} />; break;
-    case 'detail':     screen = <DetailScreen session={session} onBack={() => go('dashboard')} />; break;
+    case 'sessions':   screen = <SessionsScreen onOpen={openSession} onBack={() => go('dashboard')} />; break;
+    case 'detail':     screen = <DetailScreen session={session} onBack={() => go(detailBack)} onRequeued={() => { setSynced(true); go('sync'); }} />; break;
     case 'recommend':  screen = <RecommendScreen variant={t.recommend} ai={ai} onTrigger={triggerAI} go={go} />; break;
     case 'sync':       screen = <SyncScreen pending={pending} synced={synced} setSynced={setSynced} onPick={openAssign} onDiscard={handleDiscard} onSync={doSync} go={go} />; break;
     case 'assign':     screen = <AssignScreen variant={t.assign} session={activeSync} onSaved={finalizeSession} go={go} />; break;
     case 'profile':    screen = <ProfileScreen />; break;
-    default:           screen = <DashboardScreen variant={t.dashboard} recVariant={t.recommend} ai={ai} go={go} onOpen={openSession} onStart={handleSync} onOpenDay={openDay} pendingCount={pending.length} />;
+    default:           screen = <DashboardScreen variant={t.dashboard} recVariant={t.recommend} ai={ai} go={go} onOpen={openSession} onStart={handleSync} onOpenDay={openDay} pendingCount={pending.length} onAllSessions={() => go('sessions')} />;
   }
 
   return (
@@ -288,7 +294,7 @@ function App() {
           onChange={(v) => setTweak('recommend', v)} />
         <TweakRadio label="Satz-Zuordnung" value={t.assign}
           options={['dnd', 'tap', 'auto']}
-          onChange={(v) => { setTweak('assign', v); go('assign'); }} />
+          onChange={(v) => { setTweak('assign', v); if (activeSync) go('assign'); }} />
         <div style={{ fontSize: 11, color: 'var(--text-faint)', padding: '2px 2px 0', lineHeight: 1.4 }}>
           dnd = Drag &amp; Drop · tap = Tippen · auto = Auto-Blöcke
         </div>

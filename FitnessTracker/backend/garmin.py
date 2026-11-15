@@ -8,6 +8,8 @@ import logging
 import os
 import zipfile
 
+from models import local_now, local_today
+
 log = logging.getLogger(__name__)
 
 TOKEN_DIR = os.getenv('GARMIN_TOKEN_DIR', '/data/garmin_tokens')
@@ -60,7 +62,7 @@ def sync_garmin(since_days: int = 30) -> list[dict]:
 
     api = _get_api()
 
-    end_dt = datetime.date.today()
+    end_dt = local_today()
 
     # GARMIN_SYNC_FROM_DATE überschreibt since_days (Format: YYYY-MM-DD)
     env_from = os.getenv('GARMIN_SYNC_FROM_DATE', '').strip()
@@ -143,7 +145,7 @@ def sync_garmin(since_days: int = 30) -> list[dict]:
                 start_str.replace('Z', '+00:00')
             )
         except Exception:
-            start_time = datetime.datetime.now()
+            start_time = local_now()
 
         # Generate a short, stable pending_id
         count = GarminActivity.query.count()

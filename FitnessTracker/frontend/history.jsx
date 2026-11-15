@@ -365,20 +365,125 @@ function DayDetailScreen({ day, ai, onBack, goKI }) {
   );
 }
 
-/* session detail */
-function DetailScreen({ session, onBack }) {
-  const s = session;
+/* alle gespeicherten Einheiten, nach Monat gruppiert */
+const MONTHS_LONG = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+function SessionsScreen({ onOpen, onBack }) {
+  const sessions = window.FT.SESSIONS;
+  const groups = [];
+  sessions.forEach((s) => {
+    const [y, m] = (s.date_iso || '').split('-').map(Number);
+    const key = `${y}-${m}`;
+    let g = groups[groups.length - 1];
+    if (!g || g.key !== key) { g = { key, label: m ? `${MONTHS_LONG[m - 1]} ${y}` : 'Ohne Datum', items: [] }; groups.push(g); }
+    g.items.push(s);
+  });
   return (
     <div className="ft-scroll">
       <div className="ft-top ft-pad" style={{ paddingBottom: 10 }}>
-        <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-dim)', borderRadius: 999, padding: '8px 14px 8px 10px', font: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 18 }}>
-          <Icon name="chevL" size={16} />Zurück
-        </button>
+        <BackButton onClick={onBack} />
+        <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>Alle Einheiten</h1>
+        <p style={{ fontSize: 13.5, color: 'var(--text-dim)', marginTop: 6 }}>{sessions.length} gespeichert · antippen zum Ansehen, Bearbeiten oder Löschen</p>
+      </div>
+      <div className="ft-pad" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {groups.map((g) => (
+          <div key={g.key}>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>{g.label}</div>
+            <div className="card" style={{ padding: '2px 14px' }}>
+              {g.items.map((s, i) => <SessionMiniRow key={s.id} s={s} onOpen={onOpen} last={i === g.items.length - 1} />)}
+            </div>
+          </div>
+        ))}
+        {!sessions.length && <p style={{ textAlign: 'center', color: 'var(--text-faint)', fontSize: 14, padding: 24 }}>Noch keine Einheiten gespeichert.</p>}
+      </div>
+    </div>
+  );
+}
+
+function BackButton({ onClick, label = 'Zurück' }) {
+  return (
+    <button onClick={onClick} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-dim)', borderRadius: 999, padding: '8px 14px 8px 10px', font: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 18 }}>
+      <Icon name="chevL" size={16} />{label}
+    </button>
+  );
+}
+
+/* session detail — ansehen, bearbeiten (Sätze ändern/löschen/hinzufügen, Übung entfernen), Einheit löschen */
+function DetailScreen({ session, onBack, onRequeued }) {
+  // nach jedem Speichern lädt api-bridge neu → immer die frische Version aus FT.SESSIONS lesen
+  const fresh = session && window.FT.SESSIONS.find((x) => x.id === session.id);
+  const s = fresh || session;
+  const [edit, setEdit] = React.useState(false);
+  const [setSheet, setSetSheet] = React.useState(null);   // {exIdx, setIdx, w, r, wu, isNew}
+  const [confirmDel, setConfirmDel] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState('');
+
+  if (!s) return null;
+
+  const canEdit = !!(window.FTApi && s.dbId);
+  const clone = () => s.exercises.map((e) => ({ name: e.name, muscle: e.muscle, sets: e.sets.map((x) => ({ ...x })) }));
+
+  const commit = async (exercises) => {
+    setBusy(true); setError('');
+    try {
+      const res = await window.FTApi.updateSession(s.dbId, exercises);
+      if (res && res.deleted) { onBack(); return; }
+      setSetSheet(null);
+    } catch (e) {
+      setError(String((e && e.message) || e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const saveSet = () => {
+    const ex = clone();
+    const { exIdx, setIdx, w, r, wu, isNew } = setSheet;
+    const row = { w, r, wu };
+    if (isNew) ex[exIdx].sets.push(row); else ex[exIdx].sets[setIdx] = row;
+    commit(ex);
+  };
+  const deleteSet = () => {
+    const ex = clone();
+    ex[setSheet.exIdx].sets.splice(setSheet.setIdx, 1);
+    commit(ex);
+  };
+  const removeExercise = (exIdx) => {
+    if (!window.confirm(`„${s.exercises[exIdx].name}" mit allen Sätzen aus dieser Einheit entfernen?`)) return;
+    const ex = clone(); ex.splice(exIdx, 1); commit(ex);
+  };
+  const deleteSession = async (requeue) => {
+    setBusy(true); setError('');
+    try {
+      await window.FTApi.deleteSession(s.dbId, requeue);
+      setConfirmDel(false);
+      if (requeue && onRequeued) onRequeued(); else onBack();
+    } catch (e) {
+      setError(String((e && e.message) || e));
+      setBusy(false);
+    }
+  };
+
+  const linkBtn = { background: 'none', border: 'none', font: 'inherit', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: '4px 0' };
+
+  return (
+    <div className="ft-scroll">
+      <div className="ft-top ft-pad" style={{ paddingBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <BackButton onClick={onBack} />
+          {canEdit && (
+            <button onClick={() => { setEdit(!edit); setError(''); }} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 999, padding: '8px 14px', font: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              background: edit ? 'var(--accent)' : 'var(--surface-2)', color: edit ? 'var(--accent-ink)' : 'var(--text)', border: edit ? 'none' : '1px solid var(--border)',
+            }}>{edit ? <><Icon name="check" size={15} color="var(--accent-ink)" />Fertig</> : 'Bearbeiten'}</button>
+          )}
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <TypePill type={s.type} />
           <IntensityDot level={s.intensity} />
+          {!s.garmin && <span style={{ fontSize: 11, color: 'var(--text-faint)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 7px' }}>manuell</span>}
         </div>
         <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>{s.day}, {s.date}</h1>
+        {edit && <p style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 8 }}>Tippe einen Satz an, um Gewicht/Wdh zu ändern oder ihn zu löschen. Änderungen werden sofort gespeichert.</p>}
       </div>
 
       <div className="ft-pad">
@@ -391,36 +496,99 @@ function DetailScreen({ session, onBack }) {
           ))}
         </div>
 
+        {error && <div style={{ color: 'var(--hot)', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>{error}</div>}
+
         <SectionHeader title="Übungen" />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {s.exercises.map((ex) => (
-            <div key={ex.name} className="card" style={{ padding: 16 }}>
+          {s.exercises.map((ex, exIdx) => (
+            <div key={`${ex.name}-${exIdx}`} className="card" style={{ padding: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 12 }}>
                 <ExerciseDemo name={ex.name} pattern={window.FT.patternFor(ex.name)} muscle={ex.muscle} size={44} radius={11} />
-                <span style={{ fontSize: 16, fontWeight: 700, flex: 1 }}>{ex.name}</span>
-                <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{ex.sets.length} Sätze</span>
+                <span style={{ fontSize: 16, fontWeight: 700, flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{ex.name}</span>
+                <span style={{ fontSize: 12, color: 'var(--text-faint)', flexShrink: 0 }}>{ex.sets.length} Sätze</span>
               </div>
               {window.FT.barTipFor(ex.name) && <div style={{ marginBottom: 12, marginTop: -2 }}><BarTip tip={window.FT.barTipFor(ex.name)} /></div>}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {ex.sets.map((st, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5 }}>
-                    <span className="mono" style={{ width: 22, color: 'var(--text-faint)', fontSize: 12 }}>{i + 1}</span>
-                    {st.wu
-                      ? <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--warn)', background: 'rgba(var(--warn-rgb),0.16)', borderRadius: 5, padding: '2px 6px' }}>WARM-UP</span>
-                      : <span style={{ width: 0 }} />}
-                    <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                    <span className="mono tnum" style={{ color: 'var(--text-dim)' }}>
-                      {st.w > 0 ? `${st.w} kg ×` : ''} {st.r}{st.w > 0 ? '' : (ex.muscle === 'Core' ? ' s' : ' Wdh')}
-                    </span>
-                  </div>
-                ))}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: edit ? 4 : 6 }}>
+                {ex.sets.map((st, i) => {
+                  const Row = edit ? 'button' : 'div';
+                  return (
+                    <Row key={i} onClick={edit ? () => setSetSheet({ exIdx, setIdx: i, w: st.w || 0, r: st.r || 0, wu: !!st.wu, isNew: false }) : undefined} style={{
+                      display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, width: '100%', font: 'inherit', color: 'inherit', textAlign: 'left',
+                      ...(edit ? { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 10px', cursor: 'pointer' } : {}),
+                    }}>
+                      <span className="mono" style={{ width: 22, color: 'var(--text-faint)', fontSize: 12 }}>{i + 1}</span>
+                      {st.wu
+                        ? <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--warn)', background: 'rgba(var(--warn-rgb),0.16)', borderRadius: 5, padding: '2px 6px' }}>WARM-UP</span>
+                        : <span style={{ width: 0 }} />}
+                      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                      <span className="mono tnum" style={{ color: 'var(--text-dim)' }}>
+                        {st.w > 0 ? `${st.w} kg ×` : ''} {st.r}{st.w > 0 ? '' : ' Wdh'}
+                      </span>
+                      {edit && <Icon name="chevR" size={14} color="var(--text-faint)" />}
+                    </Row>
+                  );
+                })}
               </div>
+              {edit && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                  <button disabled={busy} onClick={() => { const last = ex.sets[ex.sets.length - 1] || {}; setSetSheet({ exIdx, setIdx: ex.sets.length, w: last.w || 0, r: last.r || 10, wu: false, isNew: true }); }} style={{ ...linkBtn, color: 'var(--accent)' }}>+ Satz hinzufügen</button>
+                  <button disabled={busy} onClick={() => removeExercise(exIdx)} style={{ ...linkBtn, color: 'var(--hot)' }}>Übung entfernen</button>
+                </div>
+              )}
             </div>
           ))}
         </div>
+
+        {edit && (
+          <button disabled={busy} onClick={() => setConfirmDel(true)} className="btn btn-block" style={{ marginTop: 22, background: 'rgba(255,107,87,0.12)', color: 'var(--hot)', border: '1px solid rgba(255,107,87,0.4)' }}>
+            <Icon name="close" size={17} color="var(--hot)" />Einheit löschen
+          </button>
+        )}
       </div>
+
+      {/* Satz bearbeiten / hinzufügen */}
+      <Sheet open={!!setSheet} onClose={() => !busy && setSetSheet(null)} title={setSheet && setSheet.isNew ? 'Satz hinzufügen' : `Satz ${setSheet ? setSheet.setIdx + 1 : ''} bearbeiten`}>
+        {setSheet && (
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>{s.exercises[setSheet.exIdx].name}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: 16 }}>
+              <MLStepper label="Gewicht" unit="kg" value={setSheet.w} setValue={(w) => setSetSheet({ ...setSheet, w })} step={2.5} min={0} />
+              <MLStepper label="Wiederholungen" unit="Wdh" value={setSheet.r} setValue={(r) => setSetSheet({ ...setSheet, r })} step={1} min={1} />
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, marginBottom: 20, cursor: 'pointer' }}>
+              <input type="checkbox" checked={setSheet.wu} onChange={(e) => setSetSheet({ ...setSheet, wu: e.target.checked })} style={{ width: 18, height: 18, accentColor: 'var(--warn)' }} />
+              Aufwärmsatz (zählt nicht für den Fortschritt)
+            </label>
+            {error && <div style={{ color: 'var(--hot)', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>{error}</div>}
+            <div style={{ display: 'flex', gap: 10 }}>
+              {!setSheet.isNew && <button disabled={busy} className="btn" onClick={deleteSet} style={{ flex: 1, background: 'rgba(255,107,87,0.12)', color: 'var(--hot)', border: '1px solid rgba(255,107,87,0.4)' }}>Löschen</button>}
+              <button disabled={busy} className="btn btn-primary" onClick={saveSet} style={{ flex: 2 }}>{busy ? 'Speichere …' : 'Speichern'}</button>
+            </div>
+          </div>
+        )}
+      </Sheet>
+
+      {/* Einheit löschen */}
+      <Sheet open={confirmDel} onClose={() => !busy && setConfirmDel(false)} title="Einheit löschen?">
+        <p style={{ fontSize: 14, color: 'var(--text-dim)', lineHeight: 1.5, marginBottom: 18 }}>
+          {s.day}, {s.date} · {s.exercises.length} Übungen · {s.sets} Sätze werden endgültig gelöscht.
+          {s.garmin && ' Da die Einheit von der Uhr stammt, kannst du sie stattdessen auch wieder zur Zuordnung in den Sync zurücklegen.'}
+        </p>
+        {error && <div style={{ color: 'var(--hot)', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>{error}</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {s.garmin && (
+            <button disabled={busy} className="btn btn-primary btn-block" onClick={() => deleteSession(true)}>
+              <Icon name="sync" size={17} />Löschen & neu zuordnen
+            </button>
+          )}
+          <button disabled={busy} className="btn btn-block" onClick={() => deleteSession(false)} style={{ background: 'rgba(255,107,87,0.12)', color: 'var(--hot)', border: '1px solid rgba(255,107,87,0.4)' }}>
+            Endgültig löschen
+          </button>
+          <button disabled={busy} className="btn btn-ghost btn-block" onClick={() => setConfirmDel(false)}>Abbrechen</button>
+        </div>
+      </Sheet>
     </div>
   );
 }
 
-Object.assign(window, { SessionCard, SessionMiniRow, HistoryScreen, DayDetailScreen, ExerciseProgressCard, ProgressChart, ChartLightbox, DetailScreen, TypePill, Stat });
+Object.assign(window, { SessionCard, SessionMiniRow, HistoryScreen, DayDetailScreen, ExerciseProgressCard, ProgressChart, ChartLightbox, DetailScreen, SessionsScreen, BackButton, TypePill, Stat });

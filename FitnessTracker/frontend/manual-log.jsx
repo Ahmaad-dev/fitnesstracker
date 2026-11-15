@@ -89,12 +89,8 @@ function ManualLogSheet({ onChanged }) {
     if (!ex || busy) return;
     setBusy(true); setError('');
     try {
-      if (window.FTApi && window.FTApi.addManualSets) {
-        await window.FTApi.addManualSets({ name: ex.name, muscle: ex.muscle, day: ex.day, date_iso: date, w, reps, sets: count });
-      } else {
-        // ohne Backend (statische Vorschau): nur lokal im Browser
-        for (let i = 0; i < count; i++) window.FT.addManualSet(ex.name, w, reps);
-      }
+      if (!window.FTApi) throw new Error('Keine Verbindung zum Server.');
+      await window.FTApi.addManualSets({ name: ex.name, muscle: ex.muscle, day: ex.day, date_iso: date, w, reps, sets: count });
       setSaved({ name: ex.name, w, reps, count, date });
       setEx(null);
       if (onChanged) onChanged();
@@ -185,4 +181,4 @@ function ManualLogLink({ style = {} }) {
   );
 }
 
-Object.assign(window, { ManualLogSheet, ManualLogLink });
+Object.assign(window, { ManualLogSheet, ManualLogLink, MLStepper });

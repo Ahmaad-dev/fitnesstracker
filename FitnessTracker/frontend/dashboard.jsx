@@ -93,7 +93,7 @@ function StatPills() {
   );
 }
 
-function DashboardScreen({ variant = 'fokus', recVariant, ai, go, onOpen, onStart, onOpenDay, pendingCount = 0 }) {
+function DashboardScreen({ variant = 'fokus', recVariant, ai, go, onOpen, onStart, onOpenDay, pendingCount = 0, onAllSessions }) {
   const sessions = window.FT.SESSIONS;
 
   return (
@@ -112,7 +112,7 @@ function DashboardScreen({ variant = 'fokus', recVariant, ai, go, onOpen, onStar
 
         <div style={{ height: 26 }} />
 
-        <SectionHeader title="Zuletzt trainiert" action="Alle" onAction={() => go('history')} />
+        <SectionHeader title="Zuletzt trainiert" action={sessions.length ? `Alle (${sessions.length})` : undefined} onAction={onAllSessions} />
         {sessions.length === 0 ? (
           <div className="card" style={{ padding: '22px 18px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
             <Icon name="history" size={28} color="var(--text-faint)" />

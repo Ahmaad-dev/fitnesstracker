@@ -3,10 +3,25 @@ from __future__ import annotations
 
 import datetime
 import json
+import os
+from zoneinfo import ZoneInfo
 
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
+
+# Der Container läuft in UTC. „Heute" (Streak, KI-Cache, manuelle Sätze,
+# Garmin-Zeitraum) soll aber nach deiner Ortszeit wechseln, nicht um 1/2 Uhr nachts.
+APP_TZ = ZoneInfo(os.getenv('APP_TZ', 'Europe/Vienna'))
+
+
+def local_now() -> datetime.datetime:
+    """Aktuelle Ortszeit (naiv, ohne tzinfo — passend zu den gespeicherten Garmin-Zeiten)."""
+    return datetime.datetime.now(APP_TZ).replace(tzinfo=None)
+
+
+def local_today() -> datetime.date:
+    return local_now().date()
 
 _WEEKDAYS_SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 _WEEKDAYS_LONG  = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']
@@ -39,9 +54,9 @@ class TrainingSession(db.Model):
         try:
             dt = datetime.date.fromisoformat(self.date_iso)
         except ValueError:
-            dt = datetime.date.today()
+            dt = local_today()
 
-        today   = datetime.date.today()
+        today   = local_today()
         days_ago = (today - dt).days
         if days_ago == 0:
             day_label = 'Heute'
@@ -57,6 +72,8 @@ class TrainingSession(db.Model):
 
         return {
             'id':        f's{self.id}',
+            'dbId':      self.id,
+            'garmin':    bool(self.garmin_activity_id),
             'day':       day_label,
             'date':      date_str,
             'date_iso':  self.date_iso,
@@ -87,7 +104,7 @@ class GarminActivity(db.Model):
     def to_pending_dict(self) -> dict:
         """Return a dict matching the FitnessTracker PENDING_SESSIONS entry format."""
         raw_sets: list[dict] = json.loads(self.sets_json or '[]')
-        dt: datetime.datetime = self.start_time or datetime.datetime.now()
+        dt: datetime.datetime = self.start_time or local_now()
 
         weekday_long  = _WEEKDAYS_LONG[dt.weekday()]
         weekday_short = _WEEKDAYS_SHORT[dt.weekday()]
