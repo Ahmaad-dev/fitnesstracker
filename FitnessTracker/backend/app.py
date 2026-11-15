@@ -343,10 +343,26 @@ def api_save_session():
     date_iso = raw.get('date_iso') or local_today().isoformat()
     training_day = assignments.get('day') or raw.get('dayGuess', 'Unbekannt')
 
+    pending_id = raw.get('id') or raw.get('garmin_activity_id')
+    act = None
+    if pending_id:
+        act = GarminActivity.query.filter(
+            (GarminActivity.pending_id == pending_id) |
+            (GarminActivity.activity_id == str(pending_id))
+        ).first()
+
+    # Duration: the Garmin activity is the source of truth; fall back to the client value
+    duration_min = round(act.duration_sec / 60) if act and act.duration_sec else 0
+    if not duration_min:
+        try:
+            duration_min = int(raw.get('duration') or 0)
+        except (TypeError, ValueError):
+            duration_min = 0
+
     ts = TrainingSession(
         date_iso=date_iso,
         training_day=training_day,
-        duration_min=raw.get('duration', 0),
+        duration_min=duration_min,
         volume_kg=volume,
         exercises_json=json.dumps(exercises, ensure_ascii=False),
         garmin_activity_id=raw.get('garmin_activity_id'),
@@ -354,14 +370,8 @@ def api_save_session():
     db.session.add(ts)
 
     # Mark the Garmin activity as imported so it leaves the pending queue
-    pending_id = raw.get('id') or raw.get('garmin_activity_id')
-    if pending_id:
-        act = GarminActivity.query.filter(
-            (GarminActivity.pending_id == pending_id) |
-            (GarminActivity.activity_id == str(pending_id))
-        ).first()
-        if act:
-            act.imported = True
+    if act:
+        act.imported = True
 
     db.session.commit()
     return jsonify({'ok': True, 'id': ts.id})

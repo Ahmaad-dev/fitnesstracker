@@ -141,6 +141,7 @@ class GarminActivity(db.Model):
             'date_iso':            dt.date().isoformat(),
             'weekday':             weekday_long,
             'dayGuess':            day_guess,
+            'duration':            round((self.duration_sec or 0) / 60),
             'sets':                ft_sets,
         }
 
