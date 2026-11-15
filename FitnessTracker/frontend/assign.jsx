@@ -31,7 +31,7 @@ function ExercisePicker({ onPick }) {
       background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, font: 'inherit', color: 'var(--text)',
     }}>
       <ExerciseDemo name={e.name} pattern={e.pattern} muscle={e.muscle} size={64} radius={14} zoomable={false} />
-      <span style={{ fontSize: 11.5, fontWeight: 650, lineHeight: 1.15, textAlign: 'center' }}>{e.name}</span>
+      <span style={{ fontSize: 11.5, fontWeight: 650, lineHeight: 1.15, textAlign: 'center', overflowWrap: 'anywhere', maxWidth: '100%' }}>{e.name}</span>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--text-faint)' }}>
         <span className="dot" style={{ width: 6, height: 6, borderRadius: '50%', background: window.FT.muscleColor(e.muscle) }} />{e.muscle}
       </span>
@@ -50,7 +50,7 @@ function ExercisePicker({ onPick }) {
       {days.map((d) => (
         <div key={d} style={{ marginBottom: 18 }}>
           <div className="eyebrow" style={{ marginBottom: 10 }}>{window.FT.dayLabel(d)}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 10 }}>
             {all.filter(e => e.day === d).map((e) => <Tile key={e.name} e={e} />)}
           </div>
         </div>
@@ -146,18 +146,29 @@ function AssignScreen({ variant = 'dnd', session, onSaved, go }) {
     const d = sd(id); const wu = model.warmup[id]; const isDragging = drag && drag.setId === id;
     return (
       <div
-        onPointerDown={(e) => startDrag(e, id, from)}
         onClick={() => onSetTap(id)}
         style={{
-          display: 'flex', alignItems: 'center', gap: 9, padding: '9px 11px',
+          display: 'flex', alignItems: 'center', gap: 9, padding: dndOn ? '0 11px 0 0' : '9px 11px', minWidth: 0,
           background: wu ? 'linear-gradient(rgba(var(--warn-rgb),0.12),rgba(var(--warn-rgb),0.12)), var(--surface-2)' : 'var(--surface-2)',
           border: `1px solid ${wu ? 'rgba(var(--warn-rgb),0.40)' : 'var(--border-2)'}`,
-          borderRadius: 12, cursor: dndOn ? 'grab' : 'pointer',
-          touchAction: dndOn ? 'none' : 'auto',
+          borderRadius: 12, cursor: dndOn ? 'default' : 'pointer',
+          touchAction: 'pan-y',   // Box selbst: normal vertikal scrollen
           opacity: isDragging ? 0.3 : 1, userSelect: 'none',
         }}>
-        {dndOn && <Icon name="grip" size={16} color="var(--text-faint)" />}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        {/* nur der Griff (6 Punkte) startet das Verschieben */}
+        {dndOn && (
+          <div
+            onPointerDown={(e) => startDrag(e, id, from)}
+            title="Gedrückt halten und ziehen"
+            style={{
+              alignSelf: 'stretch', display: 'grid', placeItems: 'center', width: 34, flexShrink: 0,
+              padding: '9px 0', cursor: 'grab', touchAction: 'none',
+              borderRight: '1px solid var(--border)', borderRadius: '11px 0 0 11px',
+            }}>
+            <Icon name="grip" size={16} color="var(--text-faint)" />
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 0, padding: dndOn ? '9px 0' : 0 }}>
           <div style={{ fontSize: 13.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
             Satz {sidx(id)}
             {wu && <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--warn)', letterSpacing: '0.04em' }}>WARM-UP</span>}
@@ -187,14 +198,14 @@ function AssignScreen({ variant = 'dnd', session, onSaved, go }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: g.setIds.length || variant !== 'auto' ? 12 : 0 }}>
           <button onClick={() => setSheet({ mode: 'exercise', groupId: g.id })} style={{
-            flex: 1, display: 'flex', alignItems: 'center', gap: 11, padding: g.ex ? '6px 8px' : '8px 10px', cursor: 'pointer', textAlign: 'left',
+            flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 11, padding: g.ex ? '6px 8px' : '8px 10px', cursor: 'pointer', textAlign: 'left',
             background: g.ex ? 'transparent' : 'var(--surface-2)', border: g.ex ? 'none' : '1px dashed var(--border-2)',
             borderRadius: 12, font: 'inherit', color: 'var(--text)',
           }}>
             {g.ex
               ? <><ExerciseDemo name={g.ex.name} pattern={g.ex.pattern} muscle={g.ex.muscle} size={46} radius={11} zoomable={false} />
-                  <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <span style={{ fontSize: 15.5, fontWeight: 700 }}>{g.ex.name}</span>
+                  <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                    <span style={{ fontSize: 15.5, fontWeight: 700, overflowWrap: 'anywhere' }}>{g.ex.name}</span>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-faint)' }}>
                       <span className="dot" style={{ width: 6, height: 6, borderRadius: '50%', background: window.FT.muscleColor(g.ex.muscle) }} />{g.ex.muscle} · ändern
                     </span>
@@ -242,7 +253,7 @@ function AssignScreen({ variant = 'dnd', session, onSaved, go }) {
     );
   }
 
-  const hint = { dnd: 'Ziehe jeden Satz in die passende Übung.', tap: 'Tippe einen Satz, um ihn einer Übung zuzuordnen.', auto: 'Sätze nach Pausen vorgruppiert. Benenne jede Übung – und ziehe Sätze bei Bedarf zwischen den Blöcken.' }[variant];
+  const hint = { dnd: 'Ziehe jeden Satz am Griff (6 Punkte links) in die passende Übung.', tap: 'Tippe einen Satz, um ihn einer Übung zuzuordnen.', auto: 'Sätze nach Pausen vorgruppiert. Benenne jede Übung – und ziehe Sätze bei Bedarf am Griff (6 Punkte links) zwischen die Blöcke.' }[variant];
 
   return (
     <div className="ft-scroll">
@@ -278,7 +289,7 @@ function AssignScreen({ variant = 'dnd', session, onSaved, go }) {
           }}>
             <div className="eyebrow" style={{ marginBottom: 11 }}>Erkannte Sätze · {model.unassigned.length}</div>
             {model.unassigned.length ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8 }}>
                 {model.unassigned.map((id) => <SetGlyph key={id} id={id} from="tray" />)}
               </div>
             ) : (

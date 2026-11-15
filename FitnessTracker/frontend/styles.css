@@ -64,6 +64,8 @@
 .ft-scroll {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  /* nur vertikal wischen — iOS erlaubt sonst trotz overflow-x:hidden seitliches Verschieben */
+  touch-action: pan-y; overscroll-behavior-x: none;
   padding-bottom: 112px;
 }
 .ft-scroll::-webkit-scrollbar { width: 0; }
