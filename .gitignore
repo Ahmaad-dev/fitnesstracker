@@ -1,1 +1,8 @@
 .vscode
+# Datenbank-Kopien für Analysen (persönliche Daten, nie committen)
+*.db
+*.db-journal
+
+# Nur lokal: Trainings-Journal (persönliche Trainingsdaten) und private Notizen
+TRAINING-JOURNAL.md
+LOCAL-NOTES.md
