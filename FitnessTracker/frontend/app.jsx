@@ -70,13 +70,66 @@ function enrichAI(data) {
     item.delta = (last != null && !bw) ? +(suggest - last).toFixed(1) : (bw ? +(suggest - (window.FT.lastReps(name) || 0)).toFixed(1) : 0);
     byName[name] = item; out.push(item);
   });
-  return { summary: data.summary || '', focusDay: data.focusDay || data.focus || '', exercises: out, byName };
+  return { summary: data.summary || '', focusDay: data.focusDay || data.focus || '', exercises: out, byName, mode: window.FT.MODE };
+}
+
+// ── KI-Prompt für den 4er-Plan (Oberkörper/Unterkörper) ──
+// Unterschiede zum klassischen Prompt: fester Plan mit Wdh-Zielen, alle Arbeitssätze der letzten 6 Einheiten
+// mit ISO-Datum, die doppelte Progression ist im Code bereits gerechnet ("regel") und die KI übernimmt sie,
+// außer die Daten sprechen klar dagegen. Keine Aussagen über Erholung, die nicht aus den Daten folgen.
+function buildPlanPrompt(profile) {
+  const FT = window.FT;
+  const p = profile || FT.PROFILE_DEFAULTS;
+  const athlete = { alter: p.age, gewicht_kg: p.weight, groesse_cm: p.height, geschlecht: p.sex, ziel: p.goal, erfahrung: p.level };
+  const due = FT.nextDay();
+  const dueLabel = FT.dayLabel(due);
+  const dates = [...new Set((FT.SESSIONS || []).map((s) => s.date_iso).filter(Boolean))].sort();
+  const lastIso = dates[dates.length - 1] || null;
+  const today = FT.todayKey();
+  const dayDiff = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
+  const daysSince = lastIso ? dayDiff(lastIso, today) : null;
+  const last14 = dates.filter((d) => dayDiff(d, today) < 14).length;
+  const order = FT.PLAN.days.map((d) => `${d} (${FT.PLAN.labels[d]}: ${FT.PLAN.focus[d]})`).join(' → ');
+  const data = FT.planAIData();
+  return `Du bist ein erfahrener, evidenzbasierter Hypertrophie-Coach. Du antwortest ausschließlich mit einem JSON-Objekt.
+
+KONTEXT
+- Trainingsplan: Oberkörper/Unterkörper, Ziel 4 Einheiten pro Woche, rotierend: ${order}. Jeder Muskel wird ~2× pro Woche trainiert.
+- Heute fällig: ${due} (${dueLabel}). Das System hat das aus der letzten Einheit bestimmt — nicht ändern.
+- Heute: ${today}. Letzte Einheit: ${lastIso || 'keine'}${daysSince != null ? ` (vor ${daysSince} Tagen)` : ''}. Trainingstage in den letzten 14 Tagen: ${last14} (Ziel: 8).
+- Progressionsregel (doppelte Progression): Schafft der Nutzer in der letzten Einheit am Top-Gewicht in ALLEN Arbeitssätzen das obere Ende von "ziel" → Gewicht um "inc" erhöhen. Liegen alle Sätze unter dem unteren Ende → um "inc" senken. Sonst Gewicht halten und Wiederholungen steigern. Zielintensität: 1–2 Wdh vor Muskelversagen bei Grundübungen, 0–1 bei Isolationsübungen.
+- "regel" enthält das Ergebnis dieser Regel, vom System berechnet (status up/hold/down/new, next = Gewicht). Übernimm "next" als Empfehlung. Weiche nur ab, wenn die Daten klar dagegen sprechen (z. B. Leistung über mehrere Einheiten fallend, oder Pause > 10 Tage → konservativer) und nenne den Grund dann in "t".
+- "verlauf": letzte Einheiten (d = Datum, s = Arbeitssätze als Gewicht x Wdh). "gewichtsangabe" beschreibt die Gewichtskonvention — deine Empfehlung "s" MUSS in genau dieser Konvention sein. koerpergewicht=true → "s" ist die Ziel-Wdh-Zahl.
+
+NUTZERPROFIL
+${JSON.stringify(athlete)}
+
+ÜBUNGEN (heute fällige zuerst)
+${JSON.stringify(data)}
+
+AUFGABE
+1) "summary": 3–5 Sätze auf Deutsch, direkte Ansprache "du", sachlich und motivierend:
+   – Stand und Trend der heute fälligen Übungen (konkrete Zahlen aus "verlauf").
+   – 1–2 konkrete Hinweise für die heutige Einheit (welche Übungen steigern, wo Wdh fehlen).
+   – Wenn die Trainingstage der letzten 14 Tage deutlich unter 8 liegen: kurz und direkt auf Konstanz hinweisen.
+   – Keine Aussagen über Schlaf, Erholung oder Ernährung, die nicht aus den Daten folgen.
+2) "ex": für JEDE Übung der Liste ein Eintrag: "n" (Name exakt wie in der Liste), "s" (Zahl), "r" (Wdh-Bereich exakt aus "ziel", z. B. "8-12"), "t" (Begründung, max. 9 Wörter, mit Bezug auf konkrete Zahlen; bei status "new": "Startgewicht – sauber austesten").
+
+FORMAT (minified, ohne Markdown):
+{"summary":"...","focusDay":"${due}","ex":[{"n":"...","s":0,"r":"8-12","t":"..."}]}`;
 }
 
 async function requestAI(profile) {
   const hasApi = window.FTApi && typeof window.FTApi.aiComplete === 'function';
   if (!hasApi && (!window.claude || !window.claude.complete)) {
     throw new Error('KI ist in dieser Umgebung nicht verfügbar.');
+  }
+  if (window.FT.isPlanMode()) {
+    const planPrompt = buildPlanPrompt(profile);
+    const res = hasApi
+      ? await window.FTApi.aiComplete(planPrompt)
+      : await window.claude.complete({ messages: [{ role: 'user', content: planPrompt }] });
+    return enrichAI(parseAI(res));
   }
   const data = window.FT.recentData();
   const names = window.FT.EXERCISES.map((e) => e.name);
@@ -130,6 +183,11 @@ function App() {
   }, []);
   const profileRef = React.useRef(profile);
   React.useEffect(() => { profileRef.current = profile; }, [profile]);
+
+  // ── Trainingsmodus aus dem Profil: 'classic' (5er-Split) | 'plan' (4er-Plan OK/UK) ──
+  // Wird vor dem Rendern der Screens gesetzt; alle FT-Helfer (nextDay, groupKeys, sessionType …) lesen ihn.
+  const mode = profile.trainingMode === 'plan' ? 'plan' : 'classic';
+  window.FT.MODE = mode;
 
   // ── Onboarding (Erst-Start, automatisch) ──
   const [onboarded, setOnboarded] = React.useState(() => {
@@ -249,17 +307,22 @@ function App() {
     go('sync');
   }, [doSync]);
 
+  // Eine KI-Empfehlung gilt nur für den Modus, in dem sie erstellt wurde (ältere Ergebnisse ohne Feld = klassisch)
+  const aiForMode = ai.status === 'ready' && ai.data && (ai.data.mode || 'classic') !== mode
+    ? { status: 'none', data: null, at: null, error: '' }
+    : ai;
+
   let screen;
   switch (route) {
     case 'history':    screen = <HistoryScreen onOpenDay={openDay} />; break;
-    case 'historyDay': screen = <DayDetailScreen day={day} ai={ai} onBack={() => go('history')} goKI={() => go('recommend')} />; break;
+    case 'historyDay': screen = <DayDetailScreen day={day} ai={aiForMode} onBack={() => go('history')} goKI={() => go('recommend')} />; break;
     case 'sessions':   screen = <SessionsScreen onOpen={openSession} onBack={() => go('dashboard')} />; break;
     case 'detail':     screen = <DetailScreen session={session} onBack={() => go(detailBack)} onRequeued={() => { setSynced(true); go('sync'); }} />; break;
-    case 'recommend':  screen = <RecommendScreen variant={t.recommend} ai={ai} onTrigger={triggerAI} go={go} />; break;
+    case 'recommend':  screen = <RecommendScreen variant={t.recommend} ai={aiForMode} onTrigger={triggerAI} go={go} />; break;
     case 'sync':       screen = <SyncScreen pending={pending} synced={synced} setSynced={setSynced} onPick={openAssign} onDiscard={handleDiscard} onSync={doSync} go={go} />; break;
     case 'assign':     screen = <AssignScreen variant={t.assign} session={activeSync} onSaved={finalizeSession} go={go} />; break;
     case 'profile':    screen = <ProfileScreen />; break;
-    default:           screen = <DashboardScreen variant={t.dashboard} recVariant={t.recommend} ai={ai} go={go} onOpen={openSession} onStart={handleSync} onOpenDay={openDay} pendingCount={pending.length} onAllSessions={() => go('sessions')} />;
+    default:           screen = <DashboardScreen variant={t.dashboard} recVariant={t.recommend} ai={aiForMode} go={go} onOpen={openSession} onStart={handleSync} onOpenDay={openDay} pendingCount={pending.length} onAllSessions={() => go('sessions')} />;
   }
 
   return (

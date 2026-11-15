@@ -140,6 +140,20 @@ function ProfileScreen() {
           <Row label="Wochenziel" sub="Trainingseinheiten / Woche" last><Stepper value={profile.weekGoal} min={1} max={7} step={1} onChange={(v) => setProfile({ weekGoal: v })} /></Row>
         </div>
 
+        {/* Trainingsmodus — klassischer 5er-Split oder 4er-Plan (Oberkörper/Unterkörper), jederzeit umschaltbar */}
+        <SectionHeader title="Trainingsmodus" />
+        <p style={{ fontSize: 11.5, color: 'var(--text-faint)', margin: '-4px 0 12px', lineHeight: 1.5 }}>
+          Bestimmt fälligen Tag, Fortschritt-Gruppen und KI-Coach. Deine gespeicherten Einheiten bleiben in beiden Modi gleich.
+        </p>
+        <div className="card" style={{ padding: '4px 14px', marginBottom: 22 }}>
+          <Row label="Modus" sub={profile.trainingMode === 'plan' ? 'Oberkörper/Unterkörper · 4×/Woche' : 'Brust · Rücken · Schulter · Arm · Beine'} last>
+            <Segmented
+              value={profile.trainingMode === 'plan' ? '4er-Plan' : '5er-Split'}
+              options={['5er-Split', '4er-Plan']}
+              onChange={(v) => setProfile(v === '4er-Plan' ? { trainingMode: 'plan', weekGoal: 4 } : { trainingMode: 'classic' })} />
+          </Row>
+        </div>
+
         {/* App */}
         <SectionHeader title="Einstellungen" />
         <div className="card" style={{ padding: '4px 14px' }}>

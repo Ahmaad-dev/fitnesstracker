@@ -47,19 +47,15 @@
   async function loadData() {
     const data = await get('/api/data');
     window.FT.SESSIONS = data.sessions || [];
-    // Re-derive session.type from the exercises it contains, because the stored
-    // training_day (dayGuess) is often wrong for weekend sessions.
+    // session.type wird aus den enthaltenen Übungen abgeleitet (der gespeicherte training_day/dayGuess
+    // ist oft falsch) — und zwar je nach Trainingsmodus: klassischer Split-Tag oder Plan-Tag (OK A …).
+    // Als Getter, damit ein Moduswechsel sofort ohne Neuladen greift.
     window.FT.SESSIONS.forEach((sess) => {
-      if (!sess.exercises || !sess.exercises.length) return;
-      const dayCounts = {};
-      sess.exercises.forEach((ex) => {
-        const def = (window.FT.EXERCISES || []).find((e) => e.name === ex.name);
-        // „Allgemein" (Klimmzüge, Dips, …) wird an jedem Tag gemacht → bestimmt nicht den Split-Tag
-        if (def && def.day && def.day !== 'Allgemein') dayCounts[def.day] = (dayCounts[def.day] || 0) + 1;
+      sess.storedType = sess.type;
+      Object.defineProperty(sess, 'type', {
+        get() { return window.FT.sessionType(this); },
+        enumerable: true, configurable: true,
       });
-      const entries = Object.entries(dayCounts);
-      if (entries.length)
-        sess.type = entries.reduce((a, b) => b[1] > a[1] ? b : a)[0];
     });
     window.FT.PENDING_SESSIONS = data.pending || [];
     window.FT.AI_CACHE = data.ai_cache || null;   // today's AI result from server

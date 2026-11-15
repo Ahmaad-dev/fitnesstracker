@@ -507,11 +507,14 @@ def api_ai():
         from openai import OpenAI
         client = OpenAI(api_key=api_key)
         model = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
+        # JSON-Modus: das Modell liefert garantiert syntaktisch gültiges JSON
+        # (beide Coach-Prompts verlangen ausdrücklich JSON, was der Modus voraussetzt).
         resp = client.chat.completions.create(
             model=model,
             messages=[{'role': 'user', 'content': prompt}],
-            max_tokens=2048,
+            max_tokens=3000,
             temperature=0.4,
+            response_format={'type': 'json_object'},
         )
         text = resp.choices[0].message.content
         return jsonify({'response': text})

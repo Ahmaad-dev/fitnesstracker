@@ -123,7 +123,8 @@ function RecCard({ variant = 'kompakt', ai, onCta, onDetails }) {
   // ready
   const R = ai.data;
   const nextDay = window.FT.nextDay();
-  const focus = R.exercises.filter((e) => e.day === nextDay);
+  // Übungen des fälligen Tags in Tages-Reihenfolge (Plan-Tag oder klassischer Split-Tag)
+  const focus = window.FT.exercisesOf(nextDay).map((e) => R.byName && R.byName[e.name]).filter(Boolean);
   const pool = focus.length ? focus : R.exercises;
   const top = pool.slice(0, 3);
 
@@ -224,7 +225,12 @@ function RecommendScreen({ variant, ai, onTrigger, go }) {
   const R = ai.data;
   const ups = R.exercises.filter((e) => e.delta > 0).length;
   const holds = R.exercises.filter((e) => e.delta === 0).length;
-  const days = window.FT.DAYS.filter((d) => R.exercises.some((e) => e.day === d));
+  // Gruppen je nach Modus; im Plan-Modus steht der heute fällige Tag oben
+  const byName = R.byName || {};
+  const rowsOf = (d) => window.FT.exercisesOf(d).map((e) => byName[e.name]).filter(Boolean);
+  const due = window.FT.isPlanMode() ? window.FT.nextDay() : null;
+  const keys = window.FT.groupKeys();
+  const days = (due ? [due, ...keys.filter((k) => k !== due)] : keys).filter((d) => rowsOf(d).length);
 
   return (
     <div className="ft-scroll">
@@ -262,9 +268,9 @@ function RecommendScreen({ variant, ai, onTrigger, go }) {
         {/* per-day weight recommendations */}
         {days.map((d) => (
           <div key={d} style={{ marginBottom: 20 }}>
-            <SectionHeader title={window.FT.dayLabel(d)} />
+            <SectionHeader title={`${window.FT.dayLabel(d)}${d === due ? ' · heute' : ''}`} />
             <div className="card" style={{ padding: '2px 14px' }}>
-              {R.exercises.filter((e) => e.day === d).map((x, i, arr) => (
+              {rowsOf(d).map((x, i, arr) => (
                 <RecExerciseRow key={x.name} x={x} last={i === arr.length - 1} />
               ))}
             </div>

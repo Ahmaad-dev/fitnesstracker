@@ -25,6 +25,9 @@ function ExercisePicker({ onPick }) {
   const [q, setQ] = React.useState('');
   const all = window.FT.EXERCISES.filter(e => e.name.toLowerCase().includes(q.toLowerCase()));
   const days = window.FT.DAYS.filter(d => all.some(e => e.day === d));
+  // 4er-Plan: Übungen des fälligen Plan-Tags als Schnellauswahl oben (Rest wie gewohnt nach Muskelgruppe)
+  const planDay = window.FT.isPlanMode() ? window.FT.nextDay() : null;
+  const planExs = planDay ? window.FT.exercisesOf(planDay).filter(e => all.includes(e)) : [];
   const Tile = ({ e }) => (
     <button key={e.name} onClick={() => onPick(e)} style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '12px 6px 10px', cursor: 'pointer',
@@ -47,6 +50,14 @@ function ExercisePicker({ onPick }) {
         }} />
       </div>
       {all.length === 0 && <div style={{ textAlign: 'center', color: 'var(--text-faint)', padding: 24, fontSize: 14 }}>Keine Treffer</div>}
+      {planExs.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <div className="eyebrow" style={{ marginBottom: 10, color: 'var(--accent)' }}>Laut Plan · {window.FT.dayLabel(planDay)}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 10 }}>
+            {planExs.map((e) => <Tile key={'plan-' + e.name} e={e} />)}
+          </div>
+        </div>
+      )}
       {days.map((d) => (
         <div key={d} style={{ marginBottom: 18 }}>
           <div className="eyebrow" style={{ marginBottom: 10 }}>{window.FT.dayLabel(d)}</div>

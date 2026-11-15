@@ -104,6 +104,8 @@ function DashboardScreen({ variant = 'fokus', recVariant, ai, go, onOpen, onStar
         {variant === 'uebersicht' && (<><StatPills /><div style={{ height: 16 }} /></>)}
         {variant === 'aktivitaet' && (<><WeekActivity /><div style={{ height: 16 }} /></>)}
 
+        {window.FT.isPlanMode() && (<><PlanTodayCard onOpenDay={onOpenDay} /><div style={{ height: 16 }} /></>)}
+
         <RecCard variant={recVariant} ai={ai} onCta={() => go('recommend')} onDetails={(d) => (onOpenDay ? onOpenDay(d) : go('recommend'))} />
 
         <div style={{ height: 22 }} />

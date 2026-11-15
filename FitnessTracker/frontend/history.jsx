@@ -174,7 +174,7 @@ function ChartLightbox() {
 }
 
 /* one exercise: photo + progression chart + latest sets (+ older sets) */
-function ExerciseProgressCard({ ex, ai, goKI }) {
+function ExerciseProgressCard({ ex, ai, goKI, planDay }) {
   const log = window.FT.EX_LOG[ex.name];
   const [open, setOpen] = React.useState(false);
   const color = window.FT.muscleColor(ex.muscle);
@@ -189,6 +189,7 @@ function ExerciseProgressCard({ ex, ai, goKI }) {
           </div>
         </div>
         {ex.barTip && <div style={{ marginBottom: 12, marginTop: -4 }}><BarTip tip={ex.barTip} /></div>}
+        {planDay && <PlanTargetLine name={ex.name} day={planDay} />}
         <div style={{ background: 'var(--bg-2)', border: '1px dashed var(--border-2)', borderRadius: 14, padding: '26px 20px', textAlign: 'center' }}>
           <Icon name="history" size={22} color="var(--text-faint)" />
           <p style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5, margin: '10px 0 16px', textWrap: 'pretty' }}>
@@ -243,6 +244,9 @@ function ExerciseProgressCard({ ex, ai, goKI }) {
       </div>
 
       {ex.barTip && <div style={{ marginBottom: 12, marginTop: -4 }}><BarTip tip={ex.barTip} /></div>}
+
+      {/* 4er-Plan: Ziel, nächstes Gewicht, Hinweis „Gewicht erhöhen" */}
+      {planDay && <PlanTargetLine name={ex.name} day={planDay} />}
 
       {/* progression chart — tap to expand to last 10 sessions */}
       <div
@@ -308,15 +312,15 @@ function ExerciseProgressCard({ ex, ai, goKI }) {
   );
 }
 
-const DAY_TITLE = { Allgemein: 'Allgemein', Brust: 'Brust', Rücken: 'Rücken', Schulter: 'Schulter', Arm: 'Arme', Beine: 'Beine' };
-
-/* Verlauf level 1 — muscle-group cards */
+/* Verlauf level 1 — Gruppen-Karten: Muskelgruppen (klassisch) bzw. Plan-Tage OK A … (4er-Plan) */
 function HistoryScreen({ onOpenDay }) {
+  const plan = window.FT.isPlanMode();
+  const due = plan ? window.FT.nextDay() : null;
   return (
     <div className="ft-scroll">
-      <ScreenHeader eyebrow="Nach Muskelgruppe" title="Fortschritt" />
+      <ScreenHeader eyebrow={plan ? 'Nach Plan-Tag' : 'Nach Muskelgruppe'} title="Fortschritt" />
       <div className="ft-pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {window.FT.DAYS.map((d, i) => {
+        {window.FT.groupKeys().map((d, i) => {
           const m = window.FT.dayMeta(d);
           const color = window.FT.muscleColor(m.colorMuscle);
           return (
@@ -326,7 +330,11 @@ function HistoryScreen({ onOpenDay }) {
             }}>
               <span style={{ width: 6, height: 42, borderRadius: 4, background: color, flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>{DAY_TITLE[d]}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 18, fontWeight: 700 }}>{window.FT.dayLabel(d)}</span>
+                  {d === due && <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--accent)', background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', borderRadius: 999, padding: '2px 8px' }}>HEUTE</span>}
+                </div>
+                {plan && window.FT.PLAN.focus[d] && <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 2 }}>{window.FT.PLAN.focus[d]}</div>}
                 <div className="mono" style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 3 }}>{m.count} Übungen · zuletzt {m.last}</div>
               </div>
               <Icon name="chevR" size={20} color="var(--text-faint)" />
@@ -340,8 +348,9 @@ function HistoryScreen({ onOpenDay }) {
 
 /* Verlauf level 2 — exercises of one group with progression */
 function DayDetailScreen({ day, ai, onBack, goKI }) {
-  const exs = window.FT.EXERCISES.filter((e) => e.day === day);
+  const exs = window.FT.exercisesOf(day);
   const color = window.FT.muscleColor(window.FT.dayMeta(day).colorMuscle);
+  const planDay = window.FT.isPlanMode() && window.FT.PLAN.items[day] ? day : null;
   return (
     <div className="ft-scroll">
       <div className="ft-top ft-pad" style={{ paddingBottom: 12 }}>
@@ -350,14 +359,16 @@ function DayDetailScreen({ day, ai, onBack, goKI }) {
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ width: 10, height: 10, borderRadius: '50%', background: color }} />
-          <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>{DAY_TITLE[day]}</h1>
+          <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>{window.FT.dayLabel(day)}</h1>
         </div>
-        <p style={{ fontSize: 13.5, color: 'var(--text-dim)', marginTop: 6 }}>{exs.length} Übungen · Gewicht & Sätze über die letzten Einheiten</p>
+        <p style={{ fontSize: 13.5, color: 'var(--text-dim)', marginTop: 6 }}>
+          {planDay ? `${window.FT.PLAN.focus[day]} · ${exs.length} Übungen in Plan-Reihenfolge` : `${exs.length} Übungen · Gewicht & Sätze über die letzten Einheiten`}
+        </p>
       </div>
       <div className="ft-pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {exs.map((ex, i) => (
           <div key={ex.name} className="fade-in" style={{ animationDelay: `${i * 0.04}s` }}>
-            <ExerciseProgressCard ex={ex} ai={ai} goKI={goKI} />
+            <ExerciseProgressCard ex={ex} ai={ai} goKI={goKI} planDay={planDay} />
           </div>
         ))}
       </div>
